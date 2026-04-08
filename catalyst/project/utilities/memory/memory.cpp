@@ -161,7 +161,7 @@ bool memory::initialize( std::wstring_view process_name )
 		return false;
 	}
 
-	this->m_handle = ::OpenProcess( PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, this->m_id );
+	this->m_handle = ::OpenProcess( PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION, FALSE, this->m_id );
 	if ( !this->m_handle )
 	{
 		return false;
@@ -193,6 +193,17 @@ bool memory::read( std::uintptr_t address, void* buffer, std::size_t size ) cons
 
 	std::size_t bytes{ 0 };
 	return ::ReadProcessMemory( this->m_handle, reinterpret_cast< const void* >( address ), buffer, size, &bytes ) && bytes == size;
+}
+
+bool memory::write( std::uintptr_t address, const void* buffer, std::size_t size ) const
+{
+	if ( !this->m_handle || !buffer || !size ) [[unlikely]]
+	{
+		return false;
+	}
+
+	std::size_t bytes{ 0 };
+	return ::WriteProcessMemory( this->m_handle, reinterpret_cast< void* >( address ), buffer, size, &bytes ) && bytes == size;
 }
 
 std::uintptr_t memory::get_module( std::string_view name ) const
@@ -432,4 +443,23 @@ std::uintptr_t memory::find_vtable_instance( std::uintptr_t module_base, std::st
 	}
 
 	return this->find_qword_in_sections( module_base, vtable, IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE );
+}
+std::uintptr_t memory::allocate( std::uintptr_t address, std::size_t size, std::uint32_t protection ) const
+{
+	if ( !this->m_handle )
+	{
+		return 0;
+	}
+
+	return reinterpret_cast< std::uintptr_t >( ::VirtualAllocEx( this->m_handle, reinterpret_cast< void* >( address ), size, MEM_COMMIT | MEM_RESERVE, protection ) );
+}
+
+bool memory::free( std::uintptr_t address ) const
+{
+	if ( !this->m_handle || !address )
+	{
+		return false;
+	}
+
+	return ::VirtualFreeEx( this->m_handle, reinterpret_cast< void* >( address ), 0, MEM_RELEASE ) != 0;
 }

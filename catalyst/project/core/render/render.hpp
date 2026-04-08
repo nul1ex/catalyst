@@ -7,8 +7,10 @@ public:
 	{
 		zdraw::font* mochi_12{};
 		zdraw::font* pretzel_12{};
+		zdraw::font* pretzel_24{};
 		zdraw::font* pixel7_10{};
 		zdraw::font* weapons_15{};
+		zdraw::font* weapons_40{};
 	};
 
 	bool initialize( );

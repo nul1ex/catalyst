@@ -1,9 +1,10 @@
-#include <stdafx.hpp>
+﻿#include <stdafx.hpp>
 
 namespace systems {
 
 	void collector::run( )
 	{
+		systems::g_view.update( );
 		const auto raw = systems::g_entities.all( );
 
 		this->collect_players( raw );
@@ -34,6 +35,9 @@ namespace systems {
 		std::vector<player> fresh{};
 		fresh.reserve( 64 );
 
+		const auto global_vars = g::memory.read<std::uintptr_t>( g::offsets.global_vars );
+		const auto current_time = global_vars ? g::memory.read<float>( global_vars + 0x30 ) : 0.0f;
+
 		for ( const auto& entry : raw )
 		{
 			if ( entry.type != entities::type::player )
@@ -54,7 +58,7 @@ namespace systems {
 			}
 
 			const auto health = g::memory.read<std::int32_t>( player_pawn + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) );
-			if ( health <= 0 )
+			if ( health < 0 )
 			{
 				continue;
 			}
@@ -63,6 +67,7 @@ namespace systems {
 			p.controller = entry.ptr;
 			p.pawn = player_pawn;
 			p.health = health;
+			p.alive = g::memory.read<bool>( entry.ptr + SCHEMA( "CCSPlayerController", "m_bPawnIsAlive"_hash ) ) && health > 0;
 			p.team = g::memory.read<std::int32_t>( player_pawn + SCHEMA( "C_BaseEntity", "m_iTeamNum"_hash ) );
 			p.invulnerable = g::memory.read<bool>( player_pawn + SCHEMA( "C_CSPlayerPawn", "m_bGunGameImmunity"_hash ) );
 			p.armor = g::memory.read<std::int32_t>( player_pawn + SCHEMA( "C_CSPlayerPawn", "m_ArmorValue"_hash ) );
@@ -70,19 +75,52 @@ namespace systems {
 			p.is_defusing = g::memory.read<bool>( player_pawn + SCHEMA( "C_CSPlayerPawn", "m_bIsDefusing"_hash ) );
 			p.is_flashed = g::memory.read<float>( player_pawn + SCHEMA( "C_CSPlayerPawnBase", "m_flFlashBangTime"_hash ) ) > 0.0f;
 			p.ping = g::memory.read<std::int32_t>( entry.ptr + SCHEMA( "CCSPlayerController", "m_iPing"_hash ) );
+			p.eye_angles = g::memory.read<math::vector3>( player_pawn + SCHEMA( "C_CSPlayerPawnBase", "m_angEyeAngles"_hash ) );
+			p.view_offset = g::memory.read<math::vector3>( player_pawn + SCHEMA( "C_BaseModelEntity", "m_vecViewOffset"_hash ) );
+			p.velocity = g::memory.read<math::vector3>( player_pawn + SCHEMA( "C_BaseEntity", "m_vecAbsVelocity"_hash ) );
+			const auto game_scene_node = g::memory.read<std::uintptr_t>(player_pawn + SCHEMA("C_BaseEntity", "m_pGameSceneNode"_hash));
 
-			const auto game_scene_node = g::memory.read<std::uintptr_t>( player_pawn + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) );
 			if ( game_scene_node )
 			{
 				p.game_scene_node = game_scene_node;
 				p.bone_cache = g::memory.read<std::uintptr_t>( game_scene_node + SCHEMA( "CSkeletonInstance", "m_modelState"_hash ) + 0x80 );
 				p.origin = g::memory.read<math::vector3>( game_scene_node + SCHEMA( "CGameSceneNode", "m_vecAbsOrigin"_hash ) );
 
+				if ( p.bone_cache )
 				{
-					const auto head = systems::g_bones.get( p.bone_cache ).get_position( 6 );
+					p.bones = systems::g_bones.get( p.bone_cache );
+					const auto head = p.bones.get_position( 6 );
 					p.is_visible = !systems::g_bvh.trace_ray( systems::g_view.origin( ), head ).hit;
-					p.hitboxes = systems::g_hitboxes.query( game_scene_node );
 				}
+
+				p.hitboxes = systems::g_hitboxes.query( game_scene_node );
+			}
+
+			{
+				auto& history = this->m_history[ p.pawn ];
+				if ( history.last_update_time > 0.0f )
+				{
+					const auto delta_time = current_time - history.last_update_time;
+					if ( delta_time > 0.001f && delta_time < 0.5f )
+					{
+						auto raw_acceleration = ( p.velocity - history.last_velocity ) / delta_time;
+						
+						raw_acceleration.clamp_length( 2500.0f );
+
+						p.acceleration = ( raw_acceleration * 0.5f ) + ( history.last_acceleration * 0.5f );
+
+						const auto ping = g::memory.read<std::int32_t>( entry.ptr + SCHEMA( "CCSPlayerController", "m_iPing"_hash ) );
+						const auto latency = static_cast< float >( ping ) * 0.001f;
+						const auto prediction_time = latency + 0.03125f; // Lag + 2 ticks buffer
+
+						p.prediction_offset = ( p.velocity * prediction_time ) + ( p.acceleration * 0.5f * prediction_time * prediction_time );
+					}
+				}
+
+				history.last_origin = p.origin;
+				history.last_acceleration = p.acceleration;
+				history.last_velocity = p.velocity;
+				history.last_update_time = current_time;
 			}
 
 			const auto item_services = g::memory.read<std::uintptr_t>( player_pawn + SCHEMA( "C_BasePlayerPawn", "m_pItemServices"_hash ) );
@@ -134,7 +172,28 @@ namespace systems {
 				p.money = g::memory.read<std::int32_t>( money_services + SCHEMA( "CCSPlayerController_InGameMoneyServices", "m_iAccount"_hash ) );
 			}
 
+			p.last_update_time = current_time;
+			p.last_update_tick = std::chrono::steady_clock::now( );
+
 			fresh.push_back( std::move( p ) );
+		}
+
+		{
+			for ( auto it = this->m_history.begin( ); it != this->m_history.end( ); )
+			{
+				bool found = false;
+				for ( const auto& p : fresh )
+				{
+					if ( p.pawn == it->first )
+					{
+						found = true;
+						break;
+					}
+				}
+
+				if ( !found ) it = this->m_history.erase( it );
+				else ++it;
+			}
 		}
 
 		{
@@ -206,7 +265,8 @@ namespace systems {
 		std::vector<projectile> fresh{};
 		fresh.reserve( 32 );
 
-		const auto current_time = g::memory.read<float>( g::memory.read<std::uintptr_t>( g::offsets.global_vars ) + 0x30 );
+		const auto global_vars = g::memory.read<std::uintptr_t>( g::offsets.global_vars );
+		const auto current_time = global_vars ? g::memory.read<float>( global_vars + 0x30 ) : 0.0f;
 
 		for ( const auto& entry : raw )
 		{
@@ -291,6 +351,7 @@ namespace systems {
 
 			if ( subtype == projectile_subtype::he_grenade || subtype == projectile_subtype::flashbang )
 			{
+				// In CS2, some projectiles use m_nExplodeEffectTickBegin but others might use m_bExplodeEffectBegan or similar
 				const auto detonate_tick = g::memory.read<std::int32_t>( entry.ptr + SCHEMA( "C_BaseCSGrenadeProjectile", "m_nExplodeEffectTickBegin"_hash ) );
 				p.detonated = detonate_tick > 0;
 			}
@@ -376,6 +437,8 @@ namespace systems {
 		case "C_FlashbangProjectile"_hash:    return projectile_subtype::flashbang;
 		case "C_SmokeGrenadeProjectile"_hash: return projectile_subtype::smoke_grenade;
 		case "C_MolotovProjectile"_hash:      return projectile_subtype::molotov;
+		case "C_IncendiaryGrenadeProjectile"_hash: return projectile_subtype::incendiary;
+		case "CIncendiaryGrenadeProjectile"_hash: return projectile_subtype::incendiary;
 		case "C_Inferno"_hash:                return projectile_subtype::molotov_fire;
 		case "C_DecoyProjectile"_hash:        return projectile_subtype::decoy;
 		default:                              return projectile_subtype::unknown;

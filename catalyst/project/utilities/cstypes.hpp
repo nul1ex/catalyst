@@ -2,8 +2,6 @@
 
 namespace cstypes {
 
-	constexpr auto tick_interval = 1.0f / 64.0f;
-
 	enum bone_ids : std::uint32_t
 	{
 		head = 6,

@@ -47,7 +47,7 @@ bool render::register_window_class( )
 	wc.lpfnWndProc = wnd_proc;
 	wc.hInstance = ::GetModuleHandleW( nullptr );
 	wc.hbrBackground = static_cast< HBRUSH >( ::GetStockObject( BLACK_BRUSH ) );
-	wc.hCursor = ::LoadCursorW( nullptr, IDC_ARROW );
+	wc.hCursor = ::LoadCursorW( nullptr, MAKEINTRESOURCEW( 32512 ) );
 	wc.lpszClassName = k_class_name;
 
 	this->m_atom = ::RegisterClassExW( &wc );
@@ -79,18 +79,21 @@ void render::run( )
 
 		zdraw::begin_frame( );
 		{
-			auto& draw_list = zdraw::get_draw_list( zdraw::draw_layer::background );
-
+			auto& esp_list = zdraw::get_draw_list( zdraw::draw_layer::background );
 			if ( systems::g_local.valid( ) )
 			{
-				systems::g_view.update( );
-				features::esp::g_player.on_render( draw_list );
-				features::esp::g_item.on_render( draw_list );
-				features::esp::g_projectile.on_render( draw_list );
-				features::misc::g_grenades.on_render( draw_list );
-				features::combat::g_legit.on_render( draw_list );
+				features::esp::g_player.on_render( esp_list );
+				features::esp::g_footsteps.on_render( esp_list );
+				features::esp::g_item.on_render( esp_list );
+				features::esp::g_projectile.on_render( esp_list );
+				features::misc::g_grenades.on_render( esp_list );
+				features::misc::g_nade_helper.on_render( esp_list );
+				features::misc::g_misc.on_render( esp_list );
+				features::misc::g_impacts.on_render( esp_list );
+				features::combat::g_legit.on_render( esp_list );
 			}
 
+			auto& menu_list = zdraw::get_draw_list( zdraw::draw_layer::window );
 			g::menu.draw( );
 		}
 		zdraw::end_frame( );
@@ -99,28 +102,38 @@ void render::run( )
 		{
 			break;
 		}
-
-		if ( settings::g_misc.limit_fps )
-		{
-			static timing::limiter limiter( settings::g_misc.fps_limit );
-			limiter.set_target( settings::g_misc.fps_limit );
-			limiter.limit( );
-		}
 	}
 }
 
 void render::update_input_window( )
 {
 	const auto style = ::GetWindowLongW( this->m_hwnd, GWL_EXSTYLE );
+	const auto open = g::menu.is_open( );
 
-	if ( g::menu.is_open( ) )
+	static bool last_open{ false };
+
+	if ( open )
 	{
-		::SetWindowLongW( this->m_hwnd, GWL_EXSTYLE, style & ~WS_EX_TRANSPARENT );
+		if ( style & WS_EX_TRANSPARENT || style & WS_EX_NOACTIVATE )
+		{
+			::SetWindowLongW( this->m_hwnd, GWL_EXSTYLE, style & ~( WS_EX_TRANSPARENT | WS_EX_NOACTIVATE ) );
+		}
+
+		if ( !last_open )
+		{
+			::SetForegroundWindow( this->m_hwnd );
+			::SetActiveWindow( this->m_hwnd );
+		}
 	}
 	else
 	{
-		::SetWindowLongW( this->m_hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT );
+		if ( !( style & WS_EX_TRANSPARENT ) || !( style & WS_EX_NOACTIVATE ) )
+		{
+			::SetWindowLongW( this->m_hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE );
+		}
 	}
+
+	last_open = open;
 }
 
 bool render::setup_d3d( )
@@ -175,8 +188,10 @@ bool render::setup_d3d( )
 	{
 		this->m_fonts.mochi_12 = zdraw::add_font_from_memory( std::span( reinterpret_cast< const std::byte* >( resources::fonts::mochi ), sizeof( resources::fonts::mochi ) ), 12.0f, 512, 512 );
 		this->m_fonts.pretzel_12 = zdraw::add_font_from_memory( std::span( reinterpret_cast< const std::byte* >( resources::fonts::pretzel ), sizeof( resources::fonts::pretzel ) ), 12.0f, 512, 512 );
+		this->m_fonts.pretzel_24 = zdraw::add_font_from_memory( std::span( reinterpret_cast< const std::byte* >( resources::fonts::pretzel ), sizeof( resources::fonts::pretzel ) ), 24.0f, 512, 512 );
 		this->m_fonts.pixel7_10 = zdraw::add_font_from_memory( std::span( reinterpret_cast< const std::byte* >( resources::fonts::pixel7 ), sizeof( resources::fonts::pixel7 ) ), 10.0f, 512, 512 );
 		this->m_fonts.weapons_15 = zdraw::add_font_from_memory( std::span( reinterpret_cast< const std::byte* >( resources::fonts::weapons ), sizeof( resources::fonts::weapons ) ), 16.0f, 512, 512 );
+		this->m_fonts.weapons_40 = zdraw::add_font_from_memory( std::span( reinterpret_cast< const std::byte* >( resources::fonts::weapons ), sizeof( resources::fonts::weapons ) ), 32.0f, 512, 512 );
 	}
 
 	return true;

@@ -6,6 +6,46 @@ namespace systems {
 	{
 		this->m_matrix = g::memory.read<math::matrix4x4>( g::offsets.view_matrix );
 
+		if ( this->m_game_hwnd && !::IsWindow( this->m_game_hwnd ) )
+		{
+			this->m_game_hwnd = nullptr;
+		}
+
+		if ( !this->m_game_hwnd )
+		{
+			struct data_t { std::uint32_t pid; HWND hwnd; };
+			data_t data{ g::memory.process_id( ), nullptr };
+
+			::EnumWindows( [ ]( HWND hwnd, LPARAM lp ) -> BOOL
+				{
+					auto d = reinterpret_cast< data_t* >( lp );
+					DWORD pid = 0;
+					::GetWindowThreadProcessId( hwnd, &pid );
+
+					if ( pid == d->pid && ::GetWindow( hwnd, GW_OWNER ) == nullptr && ::IsWindowVisible( hwnd ) )
+					{
+						d->hwnd = hwnd;
+						return FALSE;
+					}
+
+					return TRUE;
+				}, reinterpret_cast< LPARAM >( &data ) );
+
+			this->m_game_hwnd = data.hwnd;
+		}
+
+		if ( this->m_game_hwnd )
+		{
+			RECT client_rect{};
+			::GetClientRect( this->m_game_hwnd, &client_rect );
+
+			this->m_screen_size = { static_cast< float >( client_rect.right ), static_cast< float >( client_rect.bottom ) };
+
+			POINT pt{ 0, 0 };
+			::ClientToScreen( this->m_game_hwnd, &pt );
+			this->m_screen_offset = { static_cast< float >( pt.x ), static_cast< float >( pt.y ) };
+		}
+
 		static const auto view_render = g::memory.find_vtable_instance( g::modules.client, "CViewRender" );
 		if ( !view_render )
 		{
@@ -46,13 +86,12 @@ namespace systems {
 		const auto x = m[ 0 ][ 0 ] * world_pos.x + m[ 0 ][ 1 ] * world_pos.y + m[ 0 ][ 2 ] * world_pos.z + m[ 0 ][ 3 ];
 		const auto y = m[ 1 ][ 0 ] * world_pos.x + m[ 1 ][ 1 ] * world_pos.y + m[ 1 ][ 2 ] * world_pos.z + m[ 1 ][ 3 ];
 
-		const auto display = zdraw::get_display_size( );
 		const auto inv_w = 1.0f / w;
 
 		return
 		{
-			display.first * 0.5f * ( 1.0f + x * inv_w ),
-			display.second * 0.5f * ( 1.0f - y * inv_w )
+			this->m_screen_offset.x + this->m_screen_size.x * 0.5f * ( 1.0f + x * inv_w ),
+			this->m_screen_offset.y + this->m_screen_size.y * 0.5f * ( 1.0f - y * inv_w )
 		};
 	}
 

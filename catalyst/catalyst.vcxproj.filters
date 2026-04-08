@@ -60,6 +60,9 @@
     <ClCompile Include="project\core\systems\impl\collector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="project\core\systems\impl\voxels.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="project\core\features\impl\esp\item.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -67,6 +70,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="project\core\features\impl\esp\projectile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="project\external\zdraw\zdraw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="project\external\zdraw\zui\zui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="project\utilities\animation\animation.cpp">
@@ -93,22 +102,34 @@
     <ClCompile Include="project\utilities\input\input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="project\utilities\input\csgoinput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="project\core\features\impl\misc\grenades.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="project\core\menu\menu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="project\utilities\timing\timing.cpp">
+    <ClCompile Include="project\core\config\config.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="project\core\features\impl\misc\misc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="project\core\features\impl\misc\impacts.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="project\external\zdraw\zui\zui.cpp">
+    <ClCompile Include="project\core\features\impl\misc\nade_helper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="project\external\zdraw\zdraw.cpp">
+    <ClCompile Include="project\core\features\impl\esp\footsteps.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="project\core\features\impl\skinchanger\skinchanger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="project\core\features\impl\movement\movement.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -150,213 +171,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="project\external\xorstr.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\resources\fonts\pretzel.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\resources\fonts\mochi.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\utilities\animation\animation.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\resources\fonts\weapons.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\resources\fonts\pixel7.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\utilities\cstypes.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\utilities\input\input.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\poly2d.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\utilities\random.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\core\menu\menu.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\utilities\timing\timing.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\fonts\inter.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftconfig.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftheader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftmodule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftoption.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftstdlib.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\integer-types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\mac-support.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\public-macros.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\freetype.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftadvanc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbbox.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbdf.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbitmap.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbzip2.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftcache.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftchapters.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftcid.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftcolor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftdriver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fterrdef.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fterrors.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftfntfmt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftgasp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftglyph.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftgxval.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftgzip.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftimage.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftincrem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlcdfil.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlist.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlogging.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlzw.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmac.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmm.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmodapi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmoderr.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftotval.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftoutln.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftparams.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftpfr.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftrender.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsizes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsnames.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftstroke.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsynth.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fttrigon.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fttypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftwinfnt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\otsvg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\t1tables.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ttnameid.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\tttables.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\tttags.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\freetype\ft2build.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\shaders\shaders.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="project\external\zdraw\external\external\unordered_dense.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="project\external\zdraw\external\fonts\inter.hpp">
@@ -533,10 +347,49 @@
     <ClInclude Include="project\external\zdraw\external\unordered_dense.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="project\external\zdraw\zdraw.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="project\external\zdraw\zui\zui.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="project\external\zdraw\zdraw.hpp">
+    <ClInclude Include="project\resources\fonts\pretzel.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\resources\fonts\mochi.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\utilities\animation\animation.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\resources\fonts\weapons.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\resources\fonts\pixel7.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\utilities\cstypes.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\utilities\input\input.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\utilities\input\csgoinput.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\external\poly2d.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\utilities\random.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\core\menu\menu.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\core\config\config.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="project\core\features\impl\misc\sounds.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

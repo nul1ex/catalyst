@@ -63,6 +63,7 @@ namespace math {
 
 		vector3& normalize( ) noexcept;
 		[[nodiscard]] vector3 normalized( ) const noexcept;
+		vector3& clamp_length( float max_len ) noexcept;
 		[[nodiscard]] float distance( const vector3& v ) const noexcept;
 		[[nodiscard]] float distance_sqr( const vector3& v ) const noexcept;
 		[[nodiscard]] vector3 to_right_vector( ) const noexcept;
@@ -111,7 +112,9 @@ namespace math {
 		[[nodiscard]] static float deg_to_rad( float degrees ) noexcept;
 		[[nodiscard]] static float rad_to_deg( float radians ) noexcept;
 		[[nodiscard]] static float normalize_yaw( float yaw ) noexcept;
+		[[nodiscard]] static float normalize_pitch(float pitch) noexcept;
 		[[nodiscard]] static math::vector3 rotate_by_quat( const math::quaternion& q, const math::vector3& v );
+		[[nodiscard]] static math::vector2 catmull_rom( const math::vector2& p0, const math::vector2& p1, const math::vector2& p2, const math::vector2& p3, float t ) noexcept;
 	};
 
 } // namespace math

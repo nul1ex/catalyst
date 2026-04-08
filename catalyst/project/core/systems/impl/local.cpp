@@ -79,6 +79,18 @@ namespace systems {
 
 				this->m_weapon_vdata.store( vdata );
 				this->m_weapon_type.store( g::memory.read<std::uint32_t>( vdata + SCHEMA( "CCSWeaponBaseVData", "m_WeaponType"_hash ) ) );
+
+				const auto scene_node = g::memory.read<std::uintptr_t>( player_pawn + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) );
+				if ( scene_node )
+				{
+					const auto origin = g::memory.read<math::vector3>( scene_node + SCHEMA( "CGameSceneNode", "m_vecAbsOrigin"_hash ) );
+					const auto view_offset = g::memory.read<math::vector3>( player_pawn + SCHEMA( "C_BaseModelEntity", "m_vecViewOffset"_hash ) );
+					const auto eye_pos = origin + view_offset;
+
+					this->m_eye_x.store( eye_pos.x );
+					this->m_eye_y.store( eye_pos.y );
+					this->m_eye_z.store( eye_pos.z );
+				}
 			}
 		}
 		else
@@ -139,6 +151,9 @@ namespace systems {
 		this->m_weapon.store( 0 );
 		this->m_weapon_vdata.store( 0 );
 		this->m_weapon_type.store( 0 );
+		this->m_eye_x.store( 0.0f );
+		this->m_eye_y.store( 0.0f );
+		this->m_eye_z.store( 0.0f );
 	}
 
 } // namespace systems

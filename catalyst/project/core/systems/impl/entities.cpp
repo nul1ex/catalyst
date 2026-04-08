@@ -192,7 +192,6 @@ namespace systems {
 		case "C_WeaponRevolver"_hash:
 		case "C_WeaponTaser"_hash:
 		case "C_Knife"_hash:
-		case "C_C4"_hash:
 		case "C_Item_Healthshot"_hash:
 		case "C_HEGrenade"_hash:
 		case "C_Flashbang"_hash:
@@ -206,9 +205,15 @@ namespace systems {
 		case "C_FlashbangProjectile"_hash:
 		case "C_SmokeGrenadeProjectile"_hash:
 		case "C_MolotovProjectile"_hash:
+		case "C_IncendiaryGrenadeProjectile"_hash:
+		case "CIncendiaryGrenadeProjectile"_hash:
 		case "C_Inferno"_hash:
 		case "C_DecoyProjectile"_hash:
 			return type::projectile;
+
+		case "C_C4"_hash:
+		case "C_PlantedC4"_hash:
+			return type::bomb;
 
 		default:
 			return type::unknown;

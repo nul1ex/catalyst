@@ -65,6 +65,17 @@ namespace math {
 		return vec;
 	}
 
+	vector3& vector3::clamp_length( float max_len ) noexcept
+	{
+		const auto len = this->length( );
+		if ( len > max_len && len > 0.0001f )
+		{
+			*this *= ( max_len / len );
+		}
+
+		return *this;
+	}
+
 	float vector3::distance( const vector3& v ) const noexcept { return ( *this - v ).length( ); }
 	float vector3::distance_sqr( const vector3& v ) const noexcept { return ( *this - v ).length_sqr( ); }
 
@@ -307,6 +318,13 @@ namespace math {
 		return yaw;
 	}
 
+	float helpers::normalize_pitch( float pitch ) noexcept
+	{
+		while (pitch > 90.f ) { pitch -= 90.f; }
+		while (pitch < -90.f) { pitch += 90.f; }
+		return pitch;
+	}
+
 	math::vector3 helpers::rotate_by_quat( const math::quaternion& q, const math::vector3& v )
 	{
 		const auto qx = q.x, qy = q.y, qz = q.z, qw = q.w;
@@ -319,6 +337,17 @@ namespace math {
 			v.x + qw * tx + ( qy * tz - qz * ty ),
 			v.y + qw * ty + ( qz * tx - qx * tz ),
 			v.z + qw * tz + ( qx * ty - qy * tx )
+		};
+	}
+	
+	math::vector2 helpers::catmull_rom( const math::vector2& p0, const math::vector2& p1, const math::vector2& p2, const math::vector2& p3, float t ) noexcept
+	{
+		const float t2 = t * t;
+		const float t3 = t2 * t;
+
+		return {
+			0.5f * ( ( 2.0f * p1.x ) + ( -p0.x + p2.x ) * t + ( 2.0f * p0.x - 5.0f * p1.x + 4.0f * p2.x - p3.x ) * t2 + ( -p0.x + 3.0f * p1.x - 3.0f * p2.x + p3.x ) * t3 ),
+			0.5f * ( ( 2.0f * p1.y ) + ( -p0.y + p2.y ) * t + ( 2.0f * p0.y - 5.0f * p1.y + 4.0f * p2.y - p3.y ) * t2 + ( -p0.y + 3.0f * p1.y - 3.0f * p2.y + p3.y ) * t3 )
 		};
 	}
 
