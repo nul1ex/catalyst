@@ -59,7 +59,7 @@ namespace features::esp {
 		const auto x = std::floorf( screen.x - text_w * 0.5f );
 		const auto y = std::floorf( screen.y - text_h * 0.5f + y_offset );
 
-		draw_list.add_text( x, y, icon, nullptr, cfg.color, zdraw::text_style::outlined );
+		draw_list.add_text( x, y, icon, zdraw::get_font( ), cfg.color, zdraw::text_style::outlined );
 
 		zdraw::pop_font( );
 
@@ -75,7 +75,7 @@ namespace features::esp {
 		const auto x = std::floorf( screen.x - text_w * 0.5f );
 		const auto y = std::floorf( screen.y + y_offset );
 
-		draw_list.add_text( x, y, name, nullptr, cfg.color, zdraw::text_style::outlined );
+		draw_list.add_text( x, y, name, zdraw::get_font( ), cfg.color, zdraw::text_style::outlined );
 
 		zdraw::pop_font( );
 
@@ -94,7 +94,7 @@ namespace features::esp {
 		const auto fraction = static_cast< float >( std::clamp( item.ammo, 0, item.max_ammo ) ) / item.max_ammo;
 		const auto color = fraction > 0.0f ? cfg.color : cfg.empty_color;
 
-		draw_list.add_text( x, y, text, nullptr, color, zdraw::text_style::outlined );
+		draw_list.add_text( x, y, text, zdraw::get_font( ), color, zdraw::text_style::outlined );
 
 		zdraw::pop_font( );
 

@@ -1,4 +1,4 @@
-#include "zdraw.hpp"
+﻿#include "zdraw.hpp"
 
 #include <d3dcompiler.h>
 #include <wincodec.h>
@@ -11,6 +11,7 @@
 
 #include "external/fonts/inter.hpp"
 #include "external/shaders/shaders.hpp"
+#include <iostream>
 
 namespace zdraw {
 
@@ -1655,6 +1656,7 @@ namespace zdraw {
 		{
 			const auto instantaneous_fps{ 1.0f / d.m_delta_time };
 			d.m_framerate = d.m_framerate * ( 1.0f - d.k_framerate_smoothing ) + instantaneous_fps * d.k_framerate_smoothing;
+			fps = d.m_framerate;
 		}
 
 		for ( auto& dl : d.m_draw_lists )

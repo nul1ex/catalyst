@@ -1,14 +1,9 @@
-#include <stdafx.hpp>
-
-#include <timeapi.h>
-#pragma comment( lib, "winmm.lib" )
+﻿#include <stdafx.hpp>
 
 int main( )
 {
-	timeBeginPeriod( 1 );
-
 	{
-		if ( !g::console.initialize( " :> " ) )
+		if ( !g::console.initialize( " " ) )
 		{
 			return 1;
 		}
@@ -22,6 +17,8 @@ int main( )
 		{
 			return 1;
 		}
+
+		g::config.init( );
 	}
 
 	{
@@ -37,8 +34,12 @@ int main( )
 	}
 
 	{
+		features::skinchanger::g_skindb.initialize();
 		std::thread( threads::game ).detach( );
 		std::thread( threads::combat ).detach( );
+		std::thread( threads::write ).detach( );
+		std::thread( threads::skinchanger ).detach( );
+
 
 		if ( !g::render.initialize( ) )
 		{

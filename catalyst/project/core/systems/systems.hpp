@@ -1,4 +1,5 @@
 #pragma once
+#include <core/settings.hpp>
 
 namespace systems {
 
@@ -39,7 +40,8 @@ namespace systems {
 			unknown,
 			player,
 			item,
-			projectile
+			projectile,
+			bomb
 		};
 
 		struct cached
@@ -82,6 +84,7 @@ namespace systems {
 		[[nodiscard]] std::uintptr_t weapon( ) const { return this->m_weapon.load( ); }
 		[[nodiscard]] std::uintptr_t weapon_vdata( ) const { return this->m_weapon_vdata.load( ); }
 		[[nodiscard]] std::uint32_t weapon_type( ) const { return this->m_weapon_type.load( ); }
+		[[nodiscard]] math::vector3 eye_position( ) const { return { this->m_eye_x.load( ), this->m_eye_y.load( ), this->m_eye_z.load( ) }; }
 
 		[[nodiscard]] bool is_enemy( std::int32_t other_team ) const
 		{
@@ -107,6 +110,7 @@ namespace systems {
 		std::atomic<std::uintptr_t> m_weapon{};
 		std::atomic<std::uintptr_t> m_weapon_vdata{};
 		std::atomic<std::uint32_t> m_weapon_type{};
+		std::atomic<float> m_eye_x{}, m_eye_y{}, m_eye_z{};
 	};
 
 	class view
@@ -120,9 +124,14 @@ namespace systems {
 		[[nodiscard]] math::vector3 origin( ) const { return this->m_origin; }
 		[[nodiscard]] math::vector3 angles( ) const { return this->m_angles; }
 		[[nodiscard]] float fov( ) const { return this->m_fov; }
+		[[nodiscard]] math::matrix4x4 matrix( ) const { return this->m_matrix; }
 
 	private:
 		static constexpr auto k_invalid{ 0xdead };
+
+		HWND m_game_hwnd{};
+		math::vector2 m_screen_size{};
+		math::vector2 m_screen_offset{};
 
 		math::matrix4x4 m_matrix{};
 		math::vector3 m_origin{};
@@ -214,7 +223,7 @@ namespace systems {
 		enum class projectile_subtype : std::uint8_t
 		{
 			unknown = 0,
-			he_grenade, flashbang, smoke_grenade, molotov, molotov_fire, decoy
+			he_grenade, flashbang, smoke_grenade, molotov, incendiary, molotov_fire, decoy
 		};
 
 		struct weapon_info
@@ -240,6 +249,7 @@ namespace systems {
 			std::int32_t money{};
 			std::int32_t ping{};
 			std::int32_t armor{};
+			bool alive{};
 			bool invulnerable{};
 			bool has_helmet{};
 			bool has_defuser{};
@@ -248,6 +258,14 @@ namespace systems {
 			bool is_flashed{};
 			bool is_visible{};
 			hitboxes::set hitboxes{};
+			bones::data bones{};
+			math::vector3 eye_angles{};
+			math::vector3 view_offset{};
+			math::vector3 velocity{};
+			math::vector3 acceleration{};
+			math::vector3 prediction_offset{};
+			float last_update_time{};
+			std::chrono::steady_clock::time_point last_update_tick{};
 		};
 
 		struct item
@@ -290,9 +308,18 @@ namespace systems {
 		[[nodiscard]] static item_subtype classify_item( std::uint32_t schema_hash );
 		[[nodiscard]] static projectile_subtype classify_projectile( std::uint32_t schema_hash );
 
+		struct player_history
+		{
+			math::vector3 last_origin{};
+			math::vector3 last_velocity{};
+			math::vector3 last_acceleration{};
+			float last_update_time{};
+		};
+
 		std::vector<player> m_players{};
 		std::vector<item> m_items{};
 		std::vector<projectile> m_projectiles{};
+		std::unordered_map<std::uintptr_t, player_history> m_history{};
 		mutable std::shared_mutex m_mutex{};
 	};
 
@@ -409,6 +436,24 @@ namespace systems {
 		static constexpr auto k_max_depth{ 48 };
 	};
 
+	struct voxel
+	{
+		int x, y, z;
+		std::uint8_t r, g, b, a;
+		math::vector3 world;
+	};
+
+	class voxels
+	{
+	public:
+		void update( );
+		[[nodiscard]] bool line_goes_through_smoke( const math::vector3& start, const math::vector3& end ) const;
+		[[nodiscard]] const std::vector<voxel>& active_voxels( ) const { return this->m_active_voxels; }
+
+	private:
+		std::vector<voxel> m_active_voxels{};
+	};
+
 	inline convars g_convars{};
 	inline schemas g_schemas{};
 	inline entities g_entities{};
@@ -419,6 +464,7 @@ namespace systems {
 	inline hitboxes g_hitboxes{};
 	inline collector g_collector{};
 	inline bvh g_bvh{};
+	inline voxels g_voxels{};
 
 } // namespace systems
 

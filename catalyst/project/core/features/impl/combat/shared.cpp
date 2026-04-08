@@ -1,4 +1,4 @@
-#include <stdafx.hpp>
+﻿#include <stdafx.hpp>
 
 namespace features::combat {
 
@@ -31,6 +31,61 @@ namespace features::combat {
 			auto c = std::max( curve, 1.1754944e-38f );
 			c = std::fminf( 1.0f, c );
 			return v / ( ( ( 1.0f / c - 2.0f ) * ( 1.0f - v ) ) + 1.0f );
+		}
+
+		static bool ray_hits_capsule( const math::vector3& ray_origin, const math::vector3& ray_dir, const math::vector3& capsule_start, const math::vector3& capsule_end, float radius )
+		{
+			const auto capsule_vec = capsule_end - capsule_start;
+			const auto capsule_length = capsule_vec.length( );
+
+			if ( capsule_length < 0.001f )
+			{
+				const auto to_center = capsule_start - ray_origin;
+				const auto projection = to_center.dot( ray_dir );
+
+				if ( projection < 0.0f )
+				{
+					return false;
+				}
+
+				const auto closest = ray_origin + ray_dir * projection;
+				return ( closest - capsule_start ).length_sqr( ) <= radius * radius;
+			}
+
+			const auto capsule_dir = capsule_vec / capsule_length;
+			const auto w = ray_origin - capsule_start;
+
+			const auto a = ray_dir.dot( ray_dir );
+			const auto b = ray_dir.dot( capsule_dir );
+			const auto c = capsule_dir.dot( capsule_dir );
+			const auto d = ray_dir.dot( w );
+			const auto e = capsule_dir.dot( w );
+
+			const auto denom = a * c - b * b;
+
+			float s, t;
+
+			if ( std::abs( denom ) < 0.0001f )
+			{
+				s = 0.0f;
+				t = ( b > c ? d / b : e / c );
+			}
+			else
+			{
+				s = ( b * e - c * d ) / denom;
+				t = ( a * e - b * d ) / denom;
+			}
+
+			t = std::clamp( t, 0.0f, capsule_length );
+			if ( s < 0.0f )
+			{
+				return false;
+			}
+
+			const auto point_on_capsule = capsule_start + capsule_dir * t;
+			const auto point_on_ray = ray_origin + ray_dir * s;
+
+			return ( point_on_ray - point_on_capsule ).length_sqr( ) <= radius * radius;
 		}
 
 		static void scale_damage( int hitgroup, int armor, bool has_helmet, int team, float armor_ratio, float headshot_multiplier, float& damage )
@@ -128,9 +183,13 @@ namespace features::combat {
 
 		auto check_target = [ & ]( const math::vector3& seg_start, float seg_start_dist, float seg_end_dist ) -> bool
 			{
+				int closest_hb = -1;
+				float best_dist = 1e18f;
+				float best_damage = 0.0f;
+
 				for ( const auto& hb : target.hitboxes )
 				{
-					if ( hb.index < 0 || hb.bone < 0 )
+					if ( hb.index < 0 || hb.bone < 0 || hb.radius <= 0.0f )
 					{
 						continue;
 					}
@@ -144,23 +203,17 @@ namespace features::combat {
 
 					math::vector3 axis_local{};
 					if ( std::abs( half_extent.x ) >= std::abs( half_extent.y ) && std::abs( half_extent.x ) >= std::abs( half_extent.z ) )
-					{
 						axis_local = { longest, 0.0f, 0.0f };
-					}
 					else if ( std::abs( half_extent.y ) >= std::abs( half_extent.z ) )
-					{
 						axis_local = { 0.0f, longest, 0.0f };
-					}
 					else
-					{
 						axis_local = { 0.0f, 0.0f, longest };
-					}
 
 					const auto axis_world = math::helpers::rotate_by_quat( bone.rotation, axis_local );
 					const auto capsule_start = center_world - axis_world;
 					const auto capsule_end = center_world + axis_world;
 
-					if ( !g_shared.ray_hits_capsule( seg_start, direction, capsule_start, capsule_end, hb.radius ) )
+					if ( !detail::ray_hits_capsule( seg_start, direction, capsule_start, capsule_end, hb.radius ) )
 					{
 						continue;
 					}
@@ -173,30 +226,30 @@ namespace features::combat {
 						continue;
 					}
 
-					if ( current_damage < 1.0f )
+					if ( hit_dist < best_dist )
 					{
-						continue;
+						const auto total_dist = seg_start_dist + hit_dist;
+						auto damage = current_damage * std::pow( this->m_weapon_data.range_modifier, total_dist / 500.0f ); // Falloff is usually per 500 units in CS
+
+						if ( damage < 1.0f )
+							continue;
+
+						const auto hitgroup = systems::g_hitboxes.hitgroup_from_hitbox( hb.index );
+						detail::scale_damage( hitgroup, target.armor, target.has_helmet, target.team, this->m_weapon_data.armor_ratio, this->m_weapon_data.headshot_multiplier, damage );
+
+						if ( damage >= 1.0f )
+						{
+							best_dist = hit_dist;
+							closest_hb = hb.index;
+							best_damage = damage;
+						}
 					}
+				}
 
-					const auto total_dist = seg_start_dist + hit_dist;
-					auto damage = current_damage * std::pow( this->m_weapon_data.range_modifier, total_dist / max_range );
-
-					if ( damage < 1.0f )
-					{
-						continue;
-					}
-
-					const auto hitgroup = systems::g_hitboxes.hitgroup_from_hitbox( hb.index );
-
-					detail::scale_damage( hitgroup, target.armor, target.has_helmet, target.team, this->m_weapon_data.armor_ratio, this->m_weapon_data.headshot_multiplier, damage );
-
-					if ( damage < 1.0f )
-					{
-						continue;
-					}
-
-					out.damage = damage;
-					out.hitbox = hb.index;
+				if ( closest_hb != -1 )
+				{
+					out.damage = best_damage;
+					out.hitbox = closest_hb;
 					out.penetrated = ( penetration_count < 4 );
 					return true;
 				}
@@ -284,11 +337,11 @@ namespace features::combat {
 		return false;
 	}
 
-	bool shared::penetration::can( const math::vector3& start, const math::vector3& direction, float& out_damage ) const
+	bool shared::penetration::can(const math::vector3& start, const math::vector3& direction, float& out_damage) const
 	{
 		out_damage = 0.0f;
 
-		if ( this->m_weapon_data.damage <= 0.0f )
+		if (this->m_weapon_data.damage <= 0.0f)
 		{
 			return false;
 		}
@@ -296,18 +349,18 @@ namespace features::combat {
 		const auto max_range = this->m_weapon_data.range;
 		const auto ray_end = start + direction * max_range;
 
-		const auto first_hit = systems::g_bvh.trace_ray( start, ray_end );
-		if ( !first_hit.hit )
+		const auto first_hit = systems::g_bvh.trace_ray(start, ray_end);
+		if (!first_hit.hit)
 		{
 			return false;
 		}
 
-		const auto all_hits = systems::g_bvh.trace_ray_all( start, ray_end );
-		const auto segments = systems::g_bvh.build_segments( all_hits, max_range );
+		const auto all_hits = systems::g_bvh.trace_ray_all(start, ray_end);
+		const auto segments = systems::g_bvh.build_segments(all_hits, max_range);
 
-		if ( segments.empty( ) )
+		if (segments.empty())
 		{
-			if ( first_hit.surface.penetration >= 0.1f && this->m_weapon_data.penetration > 0.0f )
+			if (first_hit.surface.penetration >= 0.1f && this->m_weapon_data.penetration > 0.0f)
 			{
 				out_damage = this->m_weapon_data.damage;
 				return true;
@@ -316,38 +369,38 @@ namespace features::combat {
 			return false;
 		}
 
-		const auto& seg = segments[ 0 ];
+		const auto& seg = segments[0];
 
 		auto pen_mod = seg.min_pen_mod;
 		const auto enter_type = seg.enter_surface.surface_type;
 		const auto exit_type = seg.exit_surface.surface_type;
 
-		if ( enter_type != exit_type )
+		if (enter_type != exit_type)
 		{
-			pen_mod = std::min( pen_mod, seg.exit_surface.penetration );
+			pen_mod = std::min(pen_mod, seg.exit_surface.penetration);
 		}
 
-		if ( seg.exit_distance > 3000.0f || pen_mod < 0.1f )
+		if (seg.exit_distance > 3000.0f || pen_mod < 0.1f)
 		{
 			return false;
 		}
 
 		auto damage_modifier = 0.16f;
 
-		if ( pen_mod >= 0.1f && enter_type == exit_type )
+		if (pen_mod >= 0.1f && enter_type == exit_type)
 		{
-			if ( ( ( enter_type - 85 ) & 0xfffffffd ) == 0 )
+			if (((enter_type - 85) & 0xfffffffd) == 0)
 			{
 				pen_mod = 3.0f;
 			}
-			else if ( enter_type == 76 )
+			else if (enter_type == 76)
 			{
 				pen_mod = 2.0f;
 			}
 
-			if ( seg.thickness < 6.0f )
+			if (seg.thickness < 6.0f)
 			{
-				if ( enter_type == 71 || enter_type == 89 )
+				if (enter_type == 71 || enter_type == 89)
 				{
 					damage_modifier = 0.05f;
 					pen_mod = 3.0f;
@@ -357,11 +410,11 @@ namespace features::combat {
 
 		const auto inv_pen = 1.0f / pen_mod;
 		const auto base_loss = damage_modifier * this->m_weapon_data.damage;
-		const auto pen_loss = std::max( 0.0f, ( 3.0f / this->m_weapon_data.penetration ) * 1.25f ) * ( inv_pen * 3.0f );
-		const auto dist_loss = ( seg.thickness * seg.thickness * inv_pen ) / 24.0f;
-		const auto remaining = this->m_weapon_data.damage - ( base_loss + pen_loss + dist_loss );
+		const auto pen_loss = std::max(0.0f, (3.0f / this->m_weapon_data.penetration) * 1.25f) * (inv_pen * 3.0f);
+		const auto dist_loss = (seg.thickness * seg.thickness * inv_pen) / 24.0f;
+		const auto remaining = this->m_weapon_data.damage - (base_loss + pen_loss + dist_loss);
 
-		if ( remaining < 1.0f )
+		if (remaining < 1.0f)
 		{
 			return false;
 		}
@@ -429,7 +482,9 @@ namespace features::combat {
 		ctx.weapon_type = g::memory.read<std::uint32_t>( ctx.weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_WeaponType"_hash ) );
 		ctx.item_def_idx = g::memory.read<std::uint16_t>( ctx.weapon + SCHEMA( "C_EconEntity", "m_AttributeManager"_hash ) + SCHEMA( "C_AttributeContainer", "m_Item"_hash ) + SCHEMA( "C_EconItemView", "m_iItemDefinitionIndex"_hash ) );
 		ctx.num_bullets = g::memory.read<int>( ctx.weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_nNumBullets"_hash ) );
-		ctx.inaccuracy = this->get_inaccuracy( local_pawn, ctx.weapon, ctx.weapon_vdata, systems::g_view.angles( ) );
+		ctx.accuracy_penalty = g::memory.read<float>( ctx.weapon + SCHEMA( "C_CSWeaponBase", "m_fAccuracyPenalty"_hash ) );
+
+		ctx.inaccuracy = this->get_inaccuracy( local_pawn, ctx.weapon, ctx.weapon_vdata, systems::g_view.angles(), nullptr, nullptr);
 		ctx.spread = this->get_spread( ctx.weapon_vdata );
 		ctx.recoil_index = g::memory.read<float>( ctx.weapon + SCHEMA( "C_CSWeaponBase", "m_flRecoilIndex"_hash ) );
 		ctx.is_reloading = g::memory.read<bool>( ctx.weapon + SCHEMA( "C_CSWeaponBase", "m_bInReload"_hash ) );
@@ -462,7 +517,7 @@ namespace features::combat {
 		this->m_ctx = ctx;
 	}
 
-	float shared::calculate_hitchance( const math::vector3& eye_pos, const math::vector3& aim_angle, const systems::collector::player& target, const systems::bones::data& bones ) const
+	float shared::calculate_hitchance( const math::vector3& eye_pos, const math::vector3& aim_angle, const systems::collector::player& target, const systems::bones::data& bones, const math::vector3& offset ) const
 	{
 		const auto& ctx = this->m_ctx;
 		const auto total_spread = ctx.spread + ctx.inaccuracy;
@@ -478,73 +533,51 @@ namespace features::combat {
 			return 0.0f;
 		}
 
-		struct capsule_t
-		{
-			math::vector3 start;
-			math::vector3 end;
-			float radius;
-		};
-
-		std::array<capsule_t, 20> capsules;
-		auto capsule_count{ 0 };
-
-		for ( const auto& hb : target.hitboxes )
-		{
-			if ( hb.index < 0 || hb.bone < 0 )
-			{
-				continue;
-			}
-
-			const auto& bone = bones.bones[ hb.bone ];
-
-			const auto center_local = ( hb.mins + hb.maxs ) * 0.5f;
-			const auto half_extent = ( hb.maxs - hb.mins ) * 0.5f;
-
-			const auto ax = std::abs( half_extent.x );
-			const auto ay = std::abs( half_extent.y );
-			const auto az = std::abs( half_extent.z );
-			const auto longest = std::max( { ax, ay, az } );
-
-			math::vector3 axis_local;
-
-			if ( ax >= ay && ax >= az )
-			{
-				axis_local = { longest, 0.0f, 0.0f };
-			}
-			else if ( ay >= az )
-			{
-				axis_local = { 0.0f, longest, 0.0f };
-			}
-			else
-			{
-				axis_local = { 0.0f, 0.0f, longest };
-			}
-
-			const auto center_world = bone.position + bone.rotation.rotate_vector( center_local );
-			const auto axis_world = bone.rotation.rotate_vector( axis_local );
-
-			capsules[ capsule_count++ ] = { center_world - axis_world, center_world + axis_world, hb.radius };
-		}
-
-		if ( capsule_count == 0 )
-		{
-			return 0.0f;
-		}
-
 		math::vector3 forward{}, right{}, up{};
 		aim_angle.to_directions( &forward, &right, &up );
 
-		constexpr auto samples{ 256 };
+		constexpr auto samples{ 1024 };
 		auto hits{ 0 };
 
 		for ( int seed = 0; seed < samples; ++seed )
 		{
 			const auto spread = this->calculate_spread( seed, ctx.inaccuracy, ctx.spread, ctx.recoil_index, ctx.item_def_idx, ctx.num_bullets );
-			const auto direction = ( forward + right * spread.x + up * spread.y ).normalized( );
+			auto direction = forward + ( right * spread.x ) + ( up * spread.y );
+			direction = direction.normalized( );
 
-			for ( int i = 0; i < capsule_count; ++i )
+			for ( const auto& hb : target.hitboxes )
 			{
-				if ( this->ray_hits_capsule( eye_pos, direction, capsules[ i ].start, capsules[ i ].end, capsules[ i ].radius ) )
+				if ( hb.index < 0 || hb.bone < 0 )
+				{
+					continue;
+				}
+
+				const auto& bone = bones.bones[ hb.bone ];
+				const auto center_local = ( hb.mins + hb.maxs ) * 0.5f;
+				const auto center_world = bone.position + math::helpers::rotate_by_quat( bone.rotation, center_local ) + offset;
+
+				const auto half_extent = ( hb.maxs - hb.mins ) * 0.5f;
+				const auto longest = std::max( { std::abs( half_extent.x ), std::abs( half_extent.y ), std::abs( half_extent.z ) } );
+
+				math::vector3 axis_local{};
+				if ( std::abs( half_extent.x ) >= std::abs( half_extent.y ) && std::abs( half_extent.x ) >= std::abs( half_extent.z ) )
+				{
+					axis_local = { longest, 0.0f, 0.0f };
+				}
+				else if ( std::abs( half_extent.y ) >= std::abs( half_extent.z ) )
+				{
+					axis_local = { 0.0f, longest, 0.0f };
+				}
+				else
+				{
+					axis_local = { 0.0f, 0.0f, longest };
+				}
+
+				const auto axis_world = math::helpers::rotate_by_quat( bone.rotation, axis_local );
+				const auto capsule_start = center_world - axis_world;
+				const auto capsule_end = center_world + axis_world;
+
+				if ( detail::ray_hits_capsule( eye_pos, direction, capsule_start, capsule_end, hb.radius ) )
 				{
 					++hits;
 					break;
@@ -671,6 +704,8 @@ namespace features::combat {
 		const auto use_weapon_speed = systems::g_convars.get<bool>( CONVAR( "sv_accelerate_use_weapon_speed"_hash ) );
 		const auto water_slow_cvar = systems::g_convars.get<float>( CONVAR( "sv_water_slow_amount"_hash ) );
 
+		constexpr auto tick_interval{ 0.015625f };
+
 		const auto buttons = g::memory.read<std::uintptr_t>( movement_services + SCHEMA( "CPlayer_MovementServices", "m_nButtons"_hash ) );
 		const auto ducking_state = g::memory.read<bool>( movement_services + SCHEMA( "CCSPlayer_MovementServices", "m_bDucking"_hash ) );
 
@@ -706,7 +741,7 @@ namespace features::combat {
 				}
 
 				const auto control = std::fmaxf( spd, stopspeed_cvar );
-				const auto drop = control * friction_cvar * surface_friction * player_friction * cstypes::tick_interval;
+				const auto drop = control * friction_cvar * surface_friction * player_friction * tick_interval;
 				const auto adjusted = std::fmaxf( spd - drop, 0.0f );
 
 				if ( adjusted < spd )
@@ -762,7 +797,7 @@ namespace features::combat {
 					}
 				}
 
-				const auto gain = accel * cstypes::tick_interval * final_cap * surface_friction;
+				const auto gain = accel * tick_interval * final_cap * surface_friction;
 				const auto current_proj = vel.dot( dir );
 
 				return std::fminf( gain, std::fmaxf( 0.0f, -current_proj ) );
@@ -799,8 +834,8 @@ namespace features::combat {
 			sim_vel.x += wish_dir.x * accel_amount;
 			sim_vel.y += wish_dir.y * accel_amount;
 
-			sim_pos.x += sim_vel.x * cstypes::tick_interval;
-			sim_pos.y += sim_vel.y * cstypes::tick_interval;
+			sim_pos.x += sim_vel.x * tick_interval;
+			sim_pos.y += sim_vel.y * tick_interval;
 		}
 
 		return sim_pos;
@@ -861,7 +896,7 @@ namespace features::combat {
 		const auto latency = static_cast< float >( ping ) * 0.001f;
 		const auto interp_time = g::memory.read<float>( pawn + 0x290 ); // client @ 48 89 5C 24 ? 48 89 74 24 ? 57 48 83 EC ? 49 63 D8 48 8B F1
 
-		return latency * 0.5f + interp_time;
+		return latency + interp_time;
 	}
 
 	float shared::get_spread( std::uintptr_t weapon_vdata ) const
@@ -869,152 +904,179 @@ namespace features::combat {
 		return g::memory.read<float>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_flSpread"_hash ) );
 	}
 
-	float shared::get_inaccuracy( std::uintptr_t pawn, std::uintptr_t weapon, std::uintptr_t weapon_vdata, const math::vector3& eye_angles ) const
+	float shared::get_base_inaccuracy(std::uintptr_t weapon, std::uintptr_t weapon_vdata, std::uintptr_t pawn) const
 	{
-		const auto forcespread = systems::g_convars.get<float>( CONVAR( "weapon_accuracy_forcespread"_hash ) );
-		if ( forcespread > 0.0f )
+		const auto fire_mode = g::memory.read<int>(weapon + SCHEMA("C_CSWeaponBase", "m_weaponMode"_hash));
+		const auto flags = g::memory.read<std::uint32_t>(pawn + SCHEMA("C_BaseEntity", "m_fFlags"_hash));
+		const auto on_ground = (flags & 1) != 0;
+		const auto crouching = (flags & 2) != 0;
+		const auto move_type = g::memory.read<std::uint8_t>(pawn + SCHEMA("C_BaseEntity", "m_MoveType"_hash));
+
+		const auto inaccuracy_crouch_pair = g::memory.read<std::pair<float, float>>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flInaccuracyCrouch"_hash));
+		const auto inaccuracy_stand_pair = g::memory.read<std::pair<float, float>>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flInaccuracyStand"_hash));
+
+		float base_inaccuracy{ 0.0f };
+
+		if (move_type == 9)
 		{
-			return std::fminf( forcespread, 1.0f );
+			const auto inaccuracy_ladder_pair = g::memory.read<std::pair<float, float>>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flInaccuracyLadder"_hash));
+			base_inaccuracy = (fire_mode ? inaccuracy_stand_pair.second : inaccuracy_stand_pair.first)
+				+ (fire_mode ? inaccuracy_ladder_pair.second : inaccuracy_ladder_pair.first);
+		}
+		else
+		{
+			const auto recoil_index = g::memory.read<float>(weapon + SCHEMA("C_CSWeaponBase", "m_flRecoilIndex"_hash));
+			const auto weapon_type = g::memory.read<int>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_WeaponType"_hash));
+
+			float recovery_time{ 0.0f };
+
+			if (weapon_type == 9) // sniper
+			{
+				recovery_time = g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flRecoveryTimeStand"_hash));
+			}
+			else if (!on_ground)
+			{
+				recovery_time = g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flRecoveryTimeCrouch"_hash)) * 4.0f;
+			}
+			else
+			{
+				const auto base_rec = crouching
+					? g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flRecoveryTimeCrouch"_hash))
+					: g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flRecoveryTimeStand"_hash));
+
+				const auto final_rec = crouching
+					? g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flRecoveryTimeCrouchFinal"_hash))
+					: g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flRecoveryTimeStandFinal"_hash));
+
+				if (final_rec == -1.0f)
+				{
+					recovery_time = base_rec;
+				}
+				else
+				{
+					const auto transition_start = g::memory.read<int>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_nRecoveryTransitionStartBullet"_hash));
+					const auto transition_end = g::memory.read<int>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_nRecoveryTransitionEndBullet"_hash));
+
+					if (recoil_index <= transition_start)
+					{
+						recovery_time = base_rec;
+					}
+					else if (recoil_index >= transition_end)
+					{
+						recovery_time = final_rec;
+					}
+					else
+					{
+						recovery_time = base_rec
+							+ ((recoil_index - transition_start) / (transition_end - transition_start))
+							* (final_rec - base_rec);
+					}
+				}
+			}
+
+			base_inaccuracy = crouching
+				? (fire_mode ? inaccuracy_crouch_pair.second : inaccuracy_crouch_pair.first)
+				: (fire_mode ? inaccuracy_stand_pair.second : inaccuracy_stand_pair.first);
 		}
 
-		const auto nospread = systems::g_convars.get<bool>( CONVAR( "weapon_accuracy_nospread"_hash ) );
-		if ( nospread )
+		return base_inaccuracy;
+	}
+
+	float shared::get_inaccuracy(std::uintptr_t pawn, std::uintptr_t weapon, std::uintptr_t weapon_vdata, const math::vector3& eye_angles, float* out_move_inaccuracy, float* out_air_inaccuracy) const
+	{
+		if (!pawn || !weapon || !weapon_vdata)
 		{
 			return 0.0f;
 		}
 
-		const auto fire_mode = g::memory.read<int>( weapon + SCHEMA( "C_CSWeaponBase", "m_weaponMode"_hash ) );
-		auto inaccuracy = g::memory.read<float>( weapon + SCHEMA( "C_CSWeaponBase", "m_fAccuracyPenalty"_hash ) );
-		const auto turning_inaccuracy = g::memory.read<float>( weapon + SCHEMA( "C_CSWeaponBase", "m_flTurningInaccuracy"_hash ) );
-
-		const auto max_speed_pair = g::memory.read<std::pair<float, float>>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_flMaxSpeed"_hash ) );
-		const auto inaccuracy_move_pair = g::memory.read<std::pair<float, float>>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_flInaccuracyMove"_hash ) );
-		const auto inaccuracy_jump_initial = g::memory.read<float>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_flInaccuracyJumpInitial"_hash ) );
-		const auto inaccuracy_jump_apex = g::memory.read<float>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_flInaccuracyJumpApex"_hash ) );
-		const auto num_bullets = g::memory.read<int>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_nNumBullets"_hash ) );
-
-		const auto fm = [ & ]( const std::pair<float, float>& p ) -> float { return fire_mode ? p.second : p.first; };
-
-		const auto max_speed = fm( max_speed_pair );
-		const auto inaccuracy_move = fm( inaccuracy_move_pair );
-
-		const auto player_velocity = g::memory.read<math::vector3>( pawn + SCHEMA( "C_BaseEntity", "m_vecVelocity"_hash ) );
-		const auto speed = player_velocity.length_2d( );
-		const auto flags = g::memory.read<std::uint32_t>( pawn + SCHEMA( "C_BaseEntity", "m_fFlags"_hash ) );
-		const auto is_walking = g::memory.read<bool>( pawn + SCHEMA( "C_CSPlayerPawn", "m_bIsWalking"_hash ) );
-		const auto on_ground = ( flags & 1 ) != 0;
-
-		const auto edge0 = max_speed * 0.34f;
-		const auto edge1 = max_speed * 0.95f;
-
-		auto move_factor{ 0.0f };
-
-		if ( edge0 == edge1 )
+		const auto forcespread = systems::g_convars.get<float>(CONVAR("weapon_accuracy_force_spread"_hash));
+		if (forcespread > 0.0f)
 		{
-			move_factor = ( speed - edge1 >= 0.0f ) ? 1.0f : 0.0f;
-		}
-		else
-		{
-			move_factor = std::clamp( ( speed - edge0 ) / ( edge1 - edge0 ), 0.0f, 1.0f );
+			return std::fminf(forcespread, 1.0f);
 		}
 
-		auto move_inaccuracy{ 0.0f };
-
-		if ( move_factor > 0.0f )
+		const auto nospread = systems::g_convars.get<bool>(CONVAR("weapon_accuracy_nospread"_hash));
+		if (nospread)
 		{
-			if ( !is_walking )
-			{
-				move_factor = std::powf( move_factor, 0.25f );
-			}
-
-			move_inaccuracy = move_factor * inaccuracy_move;
+			return 0.0f;
 		}
 
-		auto air_inaccuracy{ 0.0f };
+		const auto fire_mode = g::memory.read<int>(weapon + SCHEMA("C_CSWeaponBase", "m_weaponMode"_hash));
+		const auto inaccuracy_penalty = g::memory.read<float>(weapon + SCHEMA("C_CSWeaponBase", "m_fAccuracyPenalty"_hash));
 
-		if ( !on_ground )
+		const auto max_speed_pair = g::memory.read<std::pair<float, float>>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flMaxSpeed"_hash));
+		const auto max_speed = fire_mode ? max_speed_pair.second : max_speed_pair.first;
+
+		const auto velocity = g::memory.read<math::vector3>(pawn + SCHEMA("C_BaseEntity", "m_vecVelocity"_hash));
+		const auto speed = velocity.length_2d();
+
+		const auto inaccuracy_move_pair = g::memory.read<std::pair<float, float>>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flInaccuracyMove"_hash));
+		const auto inaccuracy_move = fire_mode ? inaccuracy_move_pair.second : inaccuracy_move_pair.first;
+
+		const auto is_walking = g::memory.read<bool>(pawn + SCHEMA("C_CSPlayerPawn", "m_bIsWalking"_hash));
+
+		auto move_factor = features::combat::detail::remap_value(speed, max_speed * 0.34f, max_speed * 0.95f, 0.0f, 1.0f);
+		if (move_factor > 0.0f)
 		{
-			const auto jump_impulse = systems::g_convars.get<float>( CONVAR( "sv_jump_impulse"_hash ) );
-			const auto sqrt_threshold = std::sqrtf( std::fabsf( jump_impulse ) );
-			const auto sqrt_vertical = std::sqrtf( std::fabsf( player_velocity.z ) );
-			const auto lo = sqrt_threshold * 0.25f;
-
-			if ( lo == sqrt_threshold )
+			if (!is_walking)
 			{
-				air_inaccuracy = ( sqrt_vertical - sqrt_threshold >= 0.0f ) ? inaccuracy_jump_initial : inaccuracy_jump_apex;
+				move_factor = std::powf(move_factor, 0.25f);
 			}
-			else
-			{
-				const auto frac = ( sqrt_vertical - lo ) / ( sqrt_threshold - lo );
-				air_inaccuracy = inaccuracy_jump_apex + frac * ( inaccuracy_jump_initial - inaccuracy_jump_apex );
-			}
+		}
 
-			if ( air_inaccuracy < 0.0f )
+		const auto weapon_move_inaccuracy = move_factor * inaccuracy_move;
+
+		if (out_move_inaccuracy)
+			*out_move_inaccuracy = weapon_move_inaccuracy;
+
+		auto total = inaccuracy_penalty + weapon_move_inaccuracy;
+
+		const auto flags = g::memory.read<std::uint32_t>(pawn + SCHEMA("C_BaseEntity", "m_fFlags"_hash));
+		const auto on_ground = (flags & 1) != 0;
+
+		if (!on_ground)
+		{
+			const auto air_spread_scale = systems::g_convars.get<float>(CONVAR("weapon_air_spread_scale"_hash));
+			const auto jump_initial = g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flInaccuracyJumpInitial"_hash)) * air_spread_scale;
+			const auto jump_apex = g::memory.read<float>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_flInaccuracyJumpApex"_hash)) * air_spread_scale;
+
+			const auto impulse = systems::g_convars.get<float>(CONVAR("sv_jump_impulse"_hash));
+			const auto jump_vel = std::sqrtf(std::fabsf(impulse));
+			const auto cur_vel = std::sqrtf(std::fabsf(velocity.z));
+			const auto lo = jump_vel * 0.25f;
+
+			float air{ 0.0f };
+			if (lo == jump_vel)  // only true when jump_vel == 0
 			{
-				air_inaccuracy = 0.0f;
+				air = (cur_vel >= jump_vel) ? jump_initial : jump_apex;
 			}
 			else
 			{
-				air_inaccuracy = std::fminf( inaccuracy_jump_initial * 2.0f, air_inaccuracy );
-			}
-		}
-
-		return std::fminf( 1.0f, turning_inaccuracy + move_inaccuracy + air_inaccuracy + inaccuracy );
-	}
-
-	bool shared::ray_hits_capsule( const math::vector3& ray_origin, const math::vector3& ray_dir, const math::vector3& capsule_start, const math::vector3& capsule_end, float radius ) const
-	{
-		const auto capsule_vec = capsule_end - capsule_start;
-		const auto capsule_length = capsule_vec.length( );
-
-		if ( capsule_length < 0.001f )
-		{
-			const auto to_center = capsule_start - ray_origin;
-			const auto projection = to_center.dot( ray_dir );
-
-			if ( projection < 0.0f )
-			{
-				return false;
+				const auto frac = std::clamp((cur_vel - lo) / (jump_vel - lo), 0.0f, 1.0f);
+				air = jump_apex + frac * (jump_initial - jump_apex);
 			}
 
-			const auto closest = ray_origin + ray_dir * projection;
-			return ( closest - capsule_start ).length_sqr( ) <= radius * radius;
-		}
+			const auto air_inaccuracy = (air >= 0.0f) ? std::fminf(jump_initial * 2.0f, air) : 0.0f;
 
-		const auto capsule_dir = capsule_vec / capsule_length;
-		const auto w = ray_origin - capsule_start;
+			if (out_air_inaccuracy)
+				*out_air_inaccuracy = air_inaccuracy;
 
-		const auto a = ray_dir.dot( ray_dir );
-		const auto b = ray_dir.dot( capsule_dir );
-		const auto c = capsule_dir.dot( capsule_dir );
-		const auto d = ray_dir.dot( w );
-		const auto e = capsule_dir.dot( w );
-
-		const auto denom = a * c - b * b;
-
-		float s, t;
-
-		if ( std::abs( denom ) < 0.0001f )
-		{
-			s = 0.0f;
-			t = ( b > c ? d / b : e / c );
+			total += air_inaccuracy;
 		}
 		else
 		{
-			s = ( b * e - c * d ) / denom;
-			t = ( a * e - b * d ) / denom;
+			if (out_air_inaccuracy)
+				*out_air_inaccuracy = 0.0f;
 		}
 
-		t = std::clamp( t, 0.0f, capsule_length );
-		if ( s < 0.0f )
+		const auto num_bullets = g::memory.read<int>(weapon_vdata + SCHEMA("CCSWeaponBaseVData", "m_nNumBullets"_hash));
+		const auto shotgun_patterns = systems::g_convars.get<bool>(CONVAR("weapon_accuracy_shotgun_spread_patterns"_hash));
+		if (shotgun_patterns && num_bullets > 1)
 		{
-			return false;
+			total += 0.0f;
 		}
 
-		const auto point_on_capsule = capsule_start + capsule_dir * t;
-		const auto point_on_ray = ray_origin + ray_dir * s;
-
-		return ( point_on_ray - point_on_capsule ).length_sqr( ) <= radius * radius;
+		return std::fminf(1.0f, get_base_inaccuracy(weapon, weapon_vdata, pawn) + total);
 	}
 
 } // namespace features::combat

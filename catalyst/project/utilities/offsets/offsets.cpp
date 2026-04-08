@@ -1,4 +1,5 @@
 #include <stdafx.hpp>
+#include <iostream>
 
 bool offsets::initialize( )
 {
@@ -76,6 +77,9 @@ bool offsets::initialize( )
 			return false;
 		}
 	}
+
+	// Manual update bc im a retard and cant reverse
+	dw_view_angles = g::memory.get_module("client.dll") + 0x231E9B8;
 
 	return true;
 }

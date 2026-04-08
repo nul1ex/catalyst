@@ -1,4 +1,4 @@
-#include <stdafx.hpp>
+﻿#include <stdafx.hpp>
 
 namespace systems {
 
@@ -442,8 +442,11 @@ namespace systems {
 	void bvh::parse( )
 	{
 		const auto trace_against_entities_call = g::memory.find_pattern( g::modules.client, "E8 ? ? ? ? C7 87 ? ? ? ? ? ? ? ? 48 8D 54 24 ? 48 8B CF" );
+		g::console.print("trace_against_entities_call: {:x}", trace_against_entities_call);
 		const auto vphys2_world_global = g::memory.read<std::uintptr_t>( g::memory.resolve_rip( trace_against_entities_call - 0x1a ) );
+		g::console.print("vphys2_world_global: {:x}", vphys2_world_global);
 		const auto vphys2_world = g::memory.read<std::uintptr_t>( vphys2_world_global );
+		g::console.print("vphys2_world: {:x}", vphys2_world);
 
 		if ( !vphys2_world )
 		{
@@ -452,7 +455,7 @@ namespace systems {
 
 		const auto get_surface_data_from_handle_fn = g::memory.find_pattern( g::modules.client, "48 63 41 ? 48 8B 0D" );
 		const auto surface_manager = g::memory.read<std::uintptr_t>( g::memory.resolve_rip( get_surface_data_from_handle_fn + 4 ) );
-
+		g::console.print("surface_manager: {:x}", surface_manager);
 		if ( !surface_manager )
 		{
 			return;
@@ -474,7 +477,7 @@ namespace systems {
 						break;
 					}
 				}
-
+				g::console.print("surface_count: {}", surface_count);
 				if ( surface_count <= 0 )
 				{
 					for ( int i = 0; i < 1024; ++i )

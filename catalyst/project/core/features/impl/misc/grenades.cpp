@@ -26,7 +26,7 @@ namespace features::misc {
 				}
 
 				const auto fade_elapsed = std::chrono::duration<float>( now - g.detonate_time ).count( );
-				if ( fade_elapsed <= 0.5f )
+				if ( fade_elapsed <= cfg.fade_duration )
 				{
 					return false;
 				}
@@ -68,12 +68,12 @@ namespace features::misc {
 			if ( gren.detonated )
 			{
 				const auto elapsed = std::chrono::duration<float>( now - gren.detonate_time ).count( );
-				alpha = std::clamp( 1.0f - elapsed / 0.5f, 0.0f, 1.0f );
+				alpha = std::clamp( 1.0f - elapsed / cfg.fade_duration, 0.0f, 1.0f );
 			}
 
 			if ( alpha > 0.0f )
 			{
-				this->render_trajectory( draw_list, gren.traj, alpha );
+				this->render_trajectory( draw_list, gren.traj, alpha, gren.weapon_hash );
 			}
 		}
 
@@ -108,7 +108,7 @@ namespace features::misc {
 
 		if ( traj.valid )
 		{
-			this->render_trajectory( draw_list, traj, 1.0f );
+			this->render_trajectory( draw_list, traj, 1.0f, this->m_weapon_hash );
 		}
 	}
 
@@ -363,6 +363,27 @@ namespace features::misc {
 		}
 	}
 
+	zdraw::rgba grenades::color_for_type( std::uintptr_t weapon_hash ) const
+	{
+		const auto& cfg = settings::g_misc.m_grenades;
+
+		if ( !cfg.per_type_colors )
+		{
+			return cfg.line_color;
+		}
+
+		switch ( weapon_hash )
+		{
+		case "weapon_hegrenade"_hash:    return cfg.color_he;
+		case "weapon_flashbang"_hash:    return cfg.color_flash;
+		case "weapon_smokegrenade"_hash: return cfg.color_smoke;
+		case "weapon_molotov"_hash:
+		case "weapon_incgrenade"_hash:   return cfg.color_molotov;
+		case "weapon_decoy"_hash:        return cfg.color_decoy;
+		default:                         return cfg.line_color;
+		}
+	}
+
 	void grenades::simulate( const math::vector3& start, const math::vector3& velocity, trajectory& out )
 	{
 		this->m_sv_gravity = systems::g_convars.get<float>( CONVAR( "sv_gravity"_hash ) );
@@ -401,7 +422,7 @@ namespace features::misc {
 				{
 					out.end_tick = tick;
 					out.end_pos = pos;
-					out.duration = static_cast< float >( tick ) * cstypes::tick_interval;
+					out.duration = static_cast< float >( tick ) * tick_interval;
 					break;
 				}
 			}
@@ -411,7 +432,7 @@ namespace features::misc {
 			{
 				out.end_tick = tick;
 				out.end_pos = pos;
-				out.duration = static_cast< float >( tick ) * cstypes::tick_interval;
+				out.duration = static_cast< float >( tick ) * tick_interval;
 				break;
 			}
 
@@ -435,13 +456,13 @@ namespace features::misc {
 	void grenades::step_simulation( math::vector3& pos, math::vector3& vel, systems::bvh::trace_result& trace )
 	{
 		const auto gravity = this->m_sv_gravity * gravity_scale;
-		const auto new_vel_z = vel.z - gravity * cstypes::tick_interval;
+		const auto new_vel_z = vel.z - gravity * tick_interval;
 
 		const math::vector3 move
 		{
-			vel.x * cstypes::tick_interval,
-			vel.y * cstypes::tick_interval,
-			( vel.z + new_vel_z ) * 0.5f * cstypes::tick_interval
+			vel.x * tick_interval,
+			vel.y * tick_interval,
+			( vel.z + new_vel_z ) * 0.5f * tick_interval
 		};
 
 		vel.z = new_vel_z;
@@ -487,7 +508,7 @@ namespace features::misc {
 		const auto remaining = 1.0f - trace.fraction;
 		if ( remaining > 0.0f )
 		{
-			const auto post_trace = systems::g_bvh.trace_ray( pos, pos + new_vel * ( remaining * cstypes::tick_interval ) );
+			const auto post_trace = systems::g_bvh.trace_ray( pos, pos + new_vel * ( remaining * tick_interval ) );
 			pos = post_trace.end_pos;
 		}
 	}
@@ -500,24 +521,24 @@ namespace features::misc {
 		case "weapon_decoy"_hash:
 		{
 			const auto speed_2d = std::sqrtf( vel.x * vel.x + vel.y * vel.y );
-			const auto check_ticks = static_cast< int >( 0.2f / cstypes::tick_interval );
+			const auto check_ticks = static_cast< int >( 0.2f / tick_interval );
 			return speed_2d < this->m_velocity_threshold && ( tick % check_ticks ) == 0;
 		}
 
 		case "weapon_molotov"_hash:
 		case "weapon_incgrenade"_hash:
-			return static_cast< float >( tick ) * cstypes::tick_interval > this->m_detonate_time;
+			return static_cast< float >( tick ) * tick_interval > this->m_detonate_time;
 
 		case "weapon_flashbang"_hash:
 		case "weapon_hegrenade"_hash:
-			return static_cast< float >( tick - 8 ) * cstypes::tick_interval > this->m_detonate_time;
+			return static_cast< float >( tick - 8 ) * tick_interval > this->m_detonate_time;
 
 		default:
 			return false;
 		}
 	}
 
-	void grenades::render_trajectory( zdraw::draw_list& draw_list, const trajectory& traj, float alpha ) const
+	void grenades::render_trajectory( zdraw::draw_list& draw_list, const trajectory& traj, float alpha, std::uintptr_t weapon_hash ) const
 	{
 		if ( !traj.valid || traj.points.size( ) < 2 )
 		{
@@ -525,6 +546,7 @@ namespace features::misc {
 		}
 
 		const auto& cfg = settings::g_misc.m_grenades;
+		const auto base_color = this->color_for_type( weapon_hash );
 		const auto total = traj.points.size( );
 
 		for ( std::size_t i = 0; i + 1 < total; ++i )
@@ -538,24 +560,30 @@ namespace features::misc {
 			}
 
 			const auto t = static_cast< float >( i ) / static_cast< float >( total - 1 );
-			const auto seg_alpha = alpha * ( 1.0f - t * 0.6f );
-			const auto a = static_cast< std::uint8_t >( std::clamp( seg_alpha * static_cast< float >( cfg.color.a ), 0.0f, 255.0f ) );
+			const auto seg_alpha = cfg.line_gradient ? alpha * ( 1.0f - t * 0.6f ) : alpha;
+			const auto a = static_cast< std::uint8_t >( std::clamp( seg_alpha * static_cast< float >( base_color.a ), 0.0f, 255.0f ) );
 
-			draw_list.add_line( s0.x, s0.y, s1.x, s1.y, { cfg.color.r, cfg.color.g, cfg.color.b, a }, 2.0f );
+			draw_list.add_line( s0.x, s0.y, s1.x, s1.y, zdraw::rgba{ base_color.r, base_color.g, base_color.b, a }, cfg.line_thickness );
 		}
 
-		for ( const auto& bounce : traj.bounces )
+		if ( cfg.show_bounces )
 		{
-			const auto s = systems::g_view.project( bounce );
-			if ( !systems::g_view.projection_valid( s ) )
+			const auto sz = cfg.bounce_size;
+			const auto outline_sz = sz + 1.0f;
+
+			for ( const auto& bounce : traj.bounces )
 			{
-				continue;
+				const auto s = systems::g_view.project( bounce );
+				if ( !systems::g_view.projection_valid( s ) )
+				{
+					continue;
+				}
+
+				const auto a = static_cast< std::uint8_t >( alpha * static_cast< float >( cfg.bounce_color.a ) );
+
+				draw_list.add_rect_filled( s.x - outline_sz, s.y - outline_sz, outline_sz * 2.0f, outline_sz * 2.0f, zdraw::rgba{ 0, 0, 0, a } );
+				draw_list.add_rect_filled( s.x - sz, s.y - sz, sz * 2.0f, sz * 2.0f, zdraw::rgba{ cfg.bounce_color.r, cfg.bounce_color.g, cfg.bounce_color.b, a } );
 			}
-
-			const auto a = static_cast< std::uint8_t >( alpha * static_cast< float >( cfg.color.a ) );
-
-			draw_list.add_rect_filled( s.x - 3.0f, s.y - 3.0f, 6.0f, 6.0f, { 0, 0, 0, a } );
-			draw_list.add_rect_filled( s.x - 2.0f, s.y - 2.0f, 4.0f, 4.0f, { cfg.color.r, cfg.color.g, cfg.color.b, a } );
 		}
 
 		if ( traj.end_tick >= 0 )
@@ -563,10 +591,12 @@ namespace features::misc {
 			const auto s = systems::g_view.project( traj.end_pos );
 			if ( systems::g_view.projection_valid( s ) )
 			{
-				const auto a = static_cast< std::uint8_t >( alpha * static_cast< float >( cfg.color.a ) );
+				const auto sz = cfg.detonate_size;
+				const auto outline_sz = sz + 1.0f;
+				const auto a = static_cast< std::uint8_t >( alpha * static_cast< float >( cfg.detonate_color.a ) );
 
-				draw_list.add_rect_filled( s.x - 5.0f, s.y - 5.0f, 10.0f, 10.0f, { 0, 0, 0, a } );
-				draw_list.add_rect_filled( s.x - 4.0f, s.y - 4.0f, 8.0f, 8.0f, { cfg.color.r, cfg.color.g, cfg.color.b, a } );
+				draw_list.add_rect_filled( s.x - outline_sz, s.y - outline_sz, outline_sz * 2.0f, outline_sz * 2.0f, zdraw::rgba{ 0, 0, 0, a } );
+				draw_list.add_rect_filled( s.x - sz, s.y - sz, sz * 2.0f, sz * 2.0f, zdraw::rgba{ cfg.detonate_color.r, cfg.detonate_color.g, cfg.detonate_color.b, a } );
 			}
 		}
 	}

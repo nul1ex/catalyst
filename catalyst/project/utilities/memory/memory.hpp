@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 class memory
 {
@@ -12,6 +12,45 @@ public:
 		T value{};
 		this->read( address, &value, sizeof( T ) );
 		return value;
+	}
+
+	bool write( std::uintptr_t address, const void* buffer, std::size_t size ) const;
+
+	template <typename T>
+	bool write( std::uintptr_t address, const T& value ) const
+	{
+		return this->write( address, &value, sizeof( T ) );
+	}
+
+
+	HANDLE create_thread(uintptr_t funcAddress, LPVOID param = nullptr) const
+	{
+		if (!this->handle() || !funcAddress)
+			return nullptr;
+
+		HANDLE hThread = CreateRemoteThread(
+			this->handle(),
+			nullptr,              // default security
+			0,                    // default stack
+			reinterpret_cast<LPTHREAD_START_ROUTINE>(funcAddress),
+			param,                // optional parameter
+			0,                    // run immediately
+			nullptr               // thread ID
+		);
+
+		return hThread; // caller should CloseHandle
+	}
+
+	void call_remote(uintptr_t funcAddress, LPVOID arg = nullptr)
+	{
+		if (!funcAddress)
+			return;
+
+		HANDLE hThread = create_thread(funcAddress, arg);
+		if (hThread) {
+			WaitForSingleObject(hThread, INFINITE);
+			CloseHandle(hThread);
+		}
 	}
 
 	template <typename T = std::uintptr_t>
@@ -41,8 +80,12 @@ public:
 	std::uintptr_t find_vtable( std::uintptr_t module_base, std::string_view class_name ) const;
 	std::uintptr_t find_vtable_instance( std::uintptr_t module_base, std::string_view class_name ) const;
 	std::uintptr_t get_module( std::string_view name ) const;
+	std::uintptr_t allocate( std::uintptr_t address = 0, std::size_t size = 0x1000, std::uint32_t protection = PAGE_EXECUTE_READWRITE ) const;
+	bool free( std::uintptr_t address ) const;
+	std::uintptr_t get_base() const { return this->m_base; }
 
 	[[nodiscard]] void* handle( ) const { return this->m_handle; }
+	[[nodiscard]] std::uint32_t process_id( ) const { return this->m_id; }
 
 private:
 	std::uint32_t m_id{};

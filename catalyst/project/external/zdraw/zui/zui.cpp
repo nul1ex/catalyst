@@ -133,6 +133,14 @@ namespace
 			{
 				this->m_current.mouse_down = true;
 				this->m_current.mouse_clicked = true;
+
+				const auto vk = VK_LBUTTON;
+				if ( !this->m_current.key_down_map[ vk ] )
+				{
+					this->m_current.push_key_press( vk );
+					this->m_current.key_down_map[ vk ] = true;
+				}
+
 				return true;
 			}
 
@@ -140,6 +148,11 @@ namespace
 			{
 				this->m_current.mouse_down = false;
 				this->m_current.mouse_released = true;
+
+				const auto vk = VK_LBUTTON;
+				this->m_current.key_down_map[ vk ] = false;
+				this->m_current.push_key_release( vk );
+
 				return true;
 			}
 
@@ -147,6 +160,14 @@ namespace
 			{
 				this->m_current.right_mouse_down = true;
 				this->m_current.right_mouse_clicked = true;
+
+				const auto vk = VK_RBUTTON;
+				if ( !this->m_current.key_down_map[ vk ] )
+				{
+					this->m_current.push_key_press( vk );
+					this->m_current.key_down_map[ vk ] = true;
+				}
+
 				return true;
 			}
 
@@ -154,6 +175,30 @@ namespace
 			{
 				this->m_current.right_mouse_down = false;
 				this->m_current.right_mouse_released = true;
+
+				const auto vk = VK_RBUTTON;
+				this->m_current.key_down_map[ vk ] = false;
+				this->m_current.push_key_release( vk );
+
+				return true;
+			}
+
+			case WM_MBUTTONDOWN:
+			{
+				const auto vk = VK_MBUTTON;
+				if ( !this->m_current.key_down_map[ vk ] )
+				{
+					this->m_current.push_key_press( vk );
+					this->m_current.key_down_map[ vk ] = true;
+				}
+				return true;
+			}
+
+			case WM_MBUTTONUP:
+			{
+				const auto vk = VK_MBUTTON;
+				this->m_current.key_down_map[ vk ] = false;
+				this->m_current.push_key_release( vk );
 				return true;
 			}
 
@@ -161,6 +206,25 @@ namespace
 			{
 				const auto delta = GET_WHEEL_DELTA_WPARAM( wparam ) / static_cast< float >( WHEEL_DELTA );
 				this->m_pending_scroll_delta += delta;
+				return true;
+			}
+
+			case WM_XBUTTONDOWN:
+			{
+				const auto vk = ( GET_XBUTTON_WPARAM( wparam ) == XBUTTON1 ) ? VK_XBUTTON1 : VK_XBUTTON2;
+				if ( !this->m_current.key_down_map[ vk ] )
+				{
+					this->m_current.push_key_press( vk );
+					this->m_current.key_down_map[ vk ] = true;
+				}
+				return true;
+			}
+
+			case WM_XBUTTONUP:
+			{
+				const auto vk = ( GET_XBUTTON_WPARAM( wparam ) == XBUTTON1 ) ? VK_XBUTTON1 : VK_XBUTTON2;
+				this->m_current.key_down_map[ vk ] = false;
+				this->m_current.push_key_release( vk );
 				return true;
 			}
 
@@ -228,6 +292,12 @@ namespace
 		[[nodiscard]] bool hovered( const zui::rect& r ) const noexcept
 		{
 			return this->m_current.in_rect( r );
+		}
+ 
+		[[nodiscard]] bool is_key_down( int vk ) const noexcept
+		{
+			const auto it = this->m_current.key_down_map.find( vk );
+			return it != this->m_current.key_down_map.end( ) && it->second;
 		}
 
 	private:
@@ -516,8 +586,19 @@ namespace
 				return false;
 			}
 
-			const auto anchor = this->get_current_anchor( );
 			const auto dropdown = this->get_dropdown_rect( );
+			
+			if ( dropdown.contains( input.mouse_x, input.mouse_y ) )
+			{
+				const auto item_height = 20.0f;
+				const auto padding_top = 6.0f;
+				const auto padding_bottom = 6.0f;
+				const auto total_h = static_cast< float >( this->m_items.size( ) ) * item_height + padding_top + padding_bottom;
+				const auto max_scroll = std::max( 0.0f, total_h - dropdown.h );
+				this->m_target_scroll_y = std::clamp( this->m_target_scroll_y - input.scroll_delta * 40.0f, 0.0f, max_scroll );
+			}
+
+			const auto anchor = this->get_current_anchor( );
 
 			if ( input.mouse_clicked && !dropdown.contains( input.mouse_x, input.mouse_y ) && !anchor.contains( input.mouse_x, input.mouse_y ) )
 			{
@@ -532,7 +613,11 @@ namespace
 
 				for ( int i = 0; i < static_cast< int >( this->m_items.size( ) ); ++i )
 				{
-					const auto item_y = dropdown.y + padding_top + i * item_height;
+					const auto item_y = dropdown.y + padding_top + i * item_height - this->m_scroll_y;
+					
+					if ( item_y + item_height < dropdown.y || item_y > dropdown.bottom( ) )
+						continue;
+
 					const auto item_rect = zui::rect{ dropdown.x + 6.0f, item_y, dropdown.w - 12.0f, item_height };
 
 					if ( item_rect.contains( input.mouse_x, input.mouse_y ) )
@@ -562,6 +647,8 @@ namespace
 			const auto dt = zdraw::get_delta_time( );
 			const auto dropdown = this->get_dropdown_rect( );
 			auto& dl = zdraw::get_draw_list( zdraw::draw_layer::topmost );
+			
+			this->m_scroll_y += ( this->m_target_scroll_y - this->m_scroll_y ) * std::min( 15.0f * dt, 1.0f );
 
 			const auto anim_speed = this->m_closing ? 16.0f : 14.0f;
 			const auto target = this->m_closing ? 0.0f : 1.0f;
@@ -586,7 +673,7 @@ namespace
 			dl.add_rect_filled( dropdown.x, dropdown.y, dropdown.w, animated_h, bg_col );
 			dl.add_rect( dropdown.x, dropdown.y, dropdown.w, animated_h, border_col );
 
-			dl.push_clip_rect( dropdown.x - 2.0f, dropdown.y, dropdown.x + dropdown.w + 2.0f, dropdown.y + animated_h );
+			dl.push_clip_rect( dropdown.x, dropdown.y, dropdown.x + dropdown.w, dropdown.y + animated_h );
 
 			const auto padding_top{ 6.0f };
 			const auto item_height = style.combo_item_height;
@@ -594,10 +681,14 @@ namespace
 
 			for ( int i = 0; i < static_cast< int >( this->m_items.size( ) ); ++i )
 			{
-				const auto item_y = dropdown.y + padding_top + i * item_height;
+				const auto item_y = dropdown.y + padding_top + i * item_height - this->m_scroll_y;
+				
+				if ( item_y + item_height < dropdown.y || item_y > dropdown.bottom( ) )
+					continue;
+
 				const auto item_rect = zui::rect{ dropdown.x + item_padding, item_y, dropdown.w - item_padding * 2.0f, item_height };
 
-				const auto item_delay = i * 0.08f;
+				const auto item_delay = i * 0.02f;
 				const auto item_progress = std::clamp( this->m_open_anim - item_delay, 0.0f, 1.0f ) / ( 1.0f - std::min( item_delay, 0.5f ) );
 
 				auto& item_anim = this->m_item_anims[ i ];
@@ -683,6 +774,7 @@ namespace
 		[[nodiscard]] bool should_close( ) const override { return this->m_closing; }
 		[[nodiscard]] bool is_closed( ) const override { return this->m_fully_closed; }
 		[[nodiscard]] bool was_changed( ) const { return this->m_changed; }
+		void clear_changed( ) { this->m_changed = false; }
 
 	private:
 		[[nodiscard]] zui::rect get_dropdown_rect( ) const
@@ -691,7 +783,8 @@ namespace
 			const auto padding_top{ 6.0f };
 			const auto padding_bottom{ 6.0f };
 			const auto item_height{ 20.0f };
-			const auto dropdown_h = static_cast< float >( this->m_items.size( ) ) * item_height + padding_top + padding_bottom;
+			const auto total_h = static_cast< float >( this->m_items.size( ) ) * item_height + padding_top + padding_bottom;
+			const auto dropdown_h = std::min( total_h, 300.0f );
 
 			return zui::rect
 			{
@@ -706,6 +799,9 @@ namespace
 		std::vector<std::string> m_items{};
 		int* m_current_item{ nullptr };
 		std::function<void( )> m_on_change{};
+
+		float m_scroll_y{ 0.0f };
+		float m_target_scroll_y{ 0.0f };
 
 		float m_open_anim{ 0.0f };
 		std::vector<float> m_item_anims{};
@@ -926,6 +1022,7 @@ namespace
 		[[nodiscard]] bool should_close( ) const override { return this->m_closing; }
 		[[nodiscard]] bool is_closed( ) const override { return this->m_fully_closed; }
 		[[nodiscard]] bool was_changed( ) const { return this->m_changed; }
+		void clear_changed( ) { this->m_changed = false; }
 
 		[[nodiscard]] const std::string& get_display_text( ) const
 		{
@@ -1510,6 +1607,12 @@ namespace
 	{
 		static std::unordered_map<widget_id, text_input_state> states{};
 		return states;
+	}
+ 
+	std::unordered_map<widget_id, std::string>& get_slider_input_buffers( )
+	{
+		static std::unordered_map<widget_id, std::string> buffers{};
+		return buffers;
 	}
 
 	bool is_printable_char( int vk )
@@ -3045,11 +3148,160 @@ namespace zui {
 
 			if ( hovered && input.mouse_clicked( ) && ctx( ).m_active_slider_id == invalid_id )
 			{
-				ctx( ).m_active_slider_id = id;
+				if ( input.is_key_down( VK_CONTROL ) )
+				{
+					ctx( ).m_active_text_input_id = id;
+					auto& buffer = get_slider_input_buffers( )[ id ];
+					char buf[ 64 ]{};
+					if constexpr ( std::is_floating_point_v<T> )
+						std::snprintf( buf, sizeof( buf ), format.data( ), v );
+					else
+						std::snprintf( buf, sizeof( buf ), format.data( ), static_cast< int >( v ) );
+					buffer = buf;
+				}
+				else
+				{
+					ctx( ).m_active_slider_id = id;
+				}
 			}
 
 			const auto is_active = ctx( ).m_active_slider_id == id;
+			const auto is_manual_input = ctx( ).m_active_text_input_id == id;
 			auto changed{ false };
+
+			if ( is_manual_input )
+			{
+				auto& buffer = get_slider_input_buffers( )[ id ];
+				
+				// Get or create cursor position state for this slider
+				static std::unordered_map<widget_id, std::size_t> cursor_positions;
+				auto& cursor_pos = cursor_positions[ id ];
+				
+				// Handle text input inline within the slider area
+				const auto& input_state = input.current( );
+				const auto dt = zdraw::get_delta_time( );
+				
+				// Check for Enter or Escape to finish input
+				bool finish_input = false;
+				for ( const auto vk : input_state.key_presses( ) )
+				{
+					if ( vk == VK_RETURN )
+					{
+						finish_input = true;
+						break;
+					}
+					if ( vk == VK_ESCAPE )
+					{
+						finish_input = true;
+						break;
+					}
+				}
+				
+				// Check if clicked outside
+				if ( input.mouse_clicked( ) && !hit_rect.contains( input.mouse_x( ), input.mouse_y( ) ) )
+				{
+					finish_input = true;
+				}
+				
+				// Handle arrow keys for cursor movement
+				for ( const auto vk : input_state.key_presses( ) )
+				{
+					if ( vk == VK_LEFT )
+					{
+						if ( cursor_pos > 0 )
+							cursor_pos--;
+						break;
+					}
+					if ( vk == VK_RIGHT )
+					{
+						if ( cursor_pos < buffer.size( ) )
+							cursor_pos++;
+						break;
+					}
+				}
+				
+				// Handle backspace
+				for ( const auto vk : input_state.key_presses( ) )
+				{
+					if ( vk == VK_BACK )
+					{
+						if ( cursor_pos > 0 )
+						{
+							buffer.erase( cursor_pos - 1, 1 );
+							cursor_pos--;
+							changed = true;
+						}
+						break;
+					}
+				}
+				
+				// Handle delete
+				for ( const auto vk : input_state.key_presses( ) )
+				{
+					if ( vk == VK_DELETE )
+					{
+						if ( cursor_pos < buffer.size( ) )
+						{
+							buffer.erase( cursor_pos, 1 );
+							changed = true;
+						}
+						break;
+					}
+				}
+				
+				// Process character input
+				for ( const auto wch : input_state.chars( ) )
+				{
+					const auto ch = static_cast< char >( wch );
+					// Allow digits, minus, period
+					if ( ( ch >= '0' && ch <= '9' ) || ch == '-' || ch == '.' )
+					{
+						if ( buffer.size( ) < 16 )
+						{
+							buffer.insert( cursor_pos, 1, ch );
+							cursor_pos++;
+							changed = true;
+						}
+					}
+				}
+				
+				// Clamp cursor position
+				cursor_pos = std::min( cursor_pos, buffer.size( ) );
+				
+				if ( finish_input )
+				{
+					try {
+						if constexpr ( std::is_floating_point_v<T> )
+							v = std::clamp( std::stof( buffer ), static_cast<float>(v_min), static_cast<float>(v_max) );
+						else
+							v = std::clamp( std::stoi( buffer ), static_cast<int>(v_min), static_cast<int>(v_max) );
+						changed = true;
+					} catch ( ... ) { }
+					ctx( ).m_active_text_input_id = invalid_id;
+					cursor_positions.erase( id );
+					get_slider_input_buffers( ).erase( id );
+					return changed;
+				}
+				
+				// Render the text input in place of the value text
+				auto [input_w, input_h] = zdraw::measure_text( buffer );
+				const auto value_col = style.accent;
+				const auto text_x = abs.x + slider_width - input_w;
+				active_draw_list( ).add_text( text_x, abs.y, buffer, zdraw::get_font( ), value_col );
+				
+				// Draw cursor blink at the correct position
+				static float cursor_blink = 0.0f;
+				cursor_blink += dt;
+				if ( std::fmod( cursor_blink, 1.0f ) < 0.5f )
+				{
+					// Calculate cursor X position based on cursor_pos
+					auto [cursor_offset_w, cursor_offset_h] = cursor_pos == 0 ? std::pair{ 0.0f, 0.0f } : zdraw::measure_text( std::string_view{ buffer.data( ), cursor_pos } );
+					const auto cursor_x = text_x + cursor_offset_w;
+					active_draw_list( ).add_rect_filled( cursor_x, abs.y, 1.0f, input_h, style.text );
+				}
+				
+				return changed;
+			}
 
 			if ( is_active && input.mouse_down( ) && can_interact )
 			{
@@ -3403,6 +3655,7 @@ namespace zui {
 		if ( auto* popup = dynamic_cast< combo_overlay* >( overlays.find( id ) ) )
 		{
 			changed = popup->was_changed( );
+			popup->clear_changed( );
 		}
 
 		const auto [label_w, label_h] = zdraw::measure_text( display_label );
@@ -3508,6 +3761,8 @@ namespace zui {
 		if ( auto* popup = dynamic_cast< multicombo_overlay* >( overlays.find( id ) ) )
 		{
 			changed = popup->was_changed( );
+			popup->clear_changed( );
+			popup->clear_changed( );
 		}
 
 		const auto [label_w, label_h] = zdraw::measure_text( display_label );
@@ -3740,6 +3995,7 @@ namespace zui {
 		if ( auto* popup = dynamic_cast< color_picker_overlay* >( overlays.find( id ) ) )
 		{
 			changed = popup->was_changed( );
+			popup->clear_changed( );
 			popup->clear_changed( );
 		}
 
@@ -4336,105 +4592,115 @@ namespace zui {
 		return changed;
 	}
 
-	bool begin_popup( std::string_view label, float width )
+	bool begin_popup(std::string_view label, float width)
 	{
-		const auto win = ctx( ).current_window( );
-		if ( !win )
-		{
+		const auto win = ctx().current_window();
+		if (!win)
 			return false;
-		}
 
-		const auto id = ctx( ).generate_id( label );
-		const auto& style = ctx( ).get_style( );
-		const auto& input = ctx( ).input( ).current( );
-		auto& anims = ctx( ).anims( );
+		const auto id = ctx().generate_id(label);
+		const auto& style = ctx().get_style();
+		const auto& input = ctx().input().current();
+		auto& anims = ctx().anims();
 
-		constexpr auto dot_area_w{ 16.0f };
+		constexpr auto dot_area_w{ 20.0f };
 		const auto dot_area_h = win->last_item.h;
 
 		const auto far_right_x = win->bounds.w - style.window_padding_x - dot_area_w;
 		const auto dot_local_y = win->last_item.y;
 
-		const auto abs = rect
-		{
-			std::floorf( win->bounds.x + far_right_x ),
-			std::floorf( win->bounds.y + dot_local_y ),
-			dot_area_w,
-			dot_area_h
-		};
+		const float button_x = std::floorf(win->bounds.x + far_right_x);
+		const float button_y = std::floorf(win->bounds.y + dot_local_y);
 
-		const auto is_open = ctx( ).overlays( ).is_open( id );
-		const auto can_interact = !ctx( ).overlay_blocking_input( ) || is_open;
-		const auto hovered = can_interact && abs.contains( input.mouse_x, input.mouse_y );
+		const auto is_open = ctx().overlays().is_open(id);
+		const auto can_interact = !ctx().overlay_blocking_input() || is_open;
+		const auto hovered = can_interact &&
+			(button_x <= input.mouse_x && input.mouse_x < button_x + dot_area_w) &&
+			(button_y <= input.mouse_y && input.mouse_y < button_y + dot_area_h);
 
-		const auto hover_anim = anims.animate( id + 1, hovered ? 1.0f : 0.0f, 12.0f );
-		const auto open_color_anim = anims.animate( id + 2, is_open ? 1.0f : 0.0f, 10.0f );
+		const auto hover_anim = anims.animate(id + 1, hovered ? 1.0f : 0.0f, 12.0f);
+		const auto open_color_anim = anims.animate(id + 2, is_open ? 1.0f : 0.0f, 10.0f);
 
-		auto dot_col = lerp( darken( style.text, 0.6f ), style.accent, std::max( hover_anim, open_color_anim ) );
+		auto& dl = active_draw_list();
+
+		// === Draw small box around the dots ===
+		const float rounding = 3.0f;
+
+		// Background
+		auto box_col = lerp(style.window_bg, style.accent, hover_anim * 0.12f);
+		box_col.a = static_cast<std::uint8_t>(box_col.a * (0.65f + hover_anim * 0.35f));
+
+		dl.add_rect_filled(button_x, button_y, dot_area_w, dot_area_h, box_col);  // using your signature
+
+		// Border
+		auto border_col = lerp(darken(style.popup_border, 0.15f), style.accent, std::max(hover_anim, open_color_anim * 0.7f));
+		border_col.a = static_cast<std::uint8_t>(border_col.a * (0.75f + hover_anim * 0.25f));
+
+		dl.add_rect(button_x - 1.5f, button_y, dot_area_w + 3.f, dot_area_h, border_col, 1.f);
+
+		// === Draw the three dots ===
+		auto dot_col = lerp(darken(style.text, 0.6f), style.accent, std::max(hover_anim, open_color_anim));
 
 		constexpr auto dot_r{ 1.5f };
 		constexpr auto dot_spacing{ 4.0f };
 		const auto total_dots_w = dot_r * 2.0f * 3.0f + dot_spacing * 2.0f;
-		const auto start_x = abs.x + ( dot_area_w - total_dots_w ) * 0.5f;
-		const auto cy = abs.y + dot_area_h * 0.5f;
+		const auto start_x = button_x + (dot_area_w - total_dots_w) * 0.5f;
+		const auto cy = button_y + dot_area_h * 0.5f;
 
-		auto& dl = active_draw_list( );
-		for ( int i = 0; i < 3; ++i )
+		for (int i = 0; i < 3; ++i)
 		{
-			const auto cx = start_x + dot_r + static_cast< float >( i ) * ( dot_r * 2.0f + dot_spacing );
-			dl.add_circle_filled( cx, cy, dot_r, dot_col, 8 );
+			const auto cx = start_x + dot_r + static_cast<float>(i) * (dot_r * 2.0f + dot_spacing);
+			dl.add_circle_filled(cx, cy, dot_r, dot_col, 8);
 		}
 
-		if ( hovered && input.mouse_clicked )
+		// === Click handling ===
+		if (hovered && input.mouse_clicked)
 		{
-			if ( is_open )
-			{
-				ctx( ).overlays( ).close( id );
-			}
+			if (is_open)
+				ctx().overlays().close(id);
 			else
-			{
-				ctx( ).overlays( ).add<popup_overlay>( id, abs, width );
-			}
+				ctx().overlays().add<popup_overlay>(id, rect{ button_x, button_y, dot_area_w, dot_area_h }, width);
 		}
 
-		auto* ov = static_cast< popup_overlay* >( ctx( ).overlays( ).find( id ) );
-		if ( ov && !ov->is_closed( ) )
+		// === Popup logic (unchanged) ===
+		auto* ov = static_cast<popup_overlay*>(ctx().overlays().find(id));
+		if (ov && !ov->is_closed())
 		{
-			ov->update_anchor( abs );
-			ov->tick_animation( );
+			ov->update_anchor(rect{ button_x, button_y, dot_area_w, dot_area_h });
+			ov->tick_animation();
 
-			const auto popup_rect = ov->get_popup_rect( );
-			const auto ease_t = ease::out_cubic( ov->get_open_anim( ) );
+			const auto popup_rect = ov->get_popup_rect();
+			const auto ease_t = ease::out_cubic(ov->get_open_anim());
 			const auto animated_h = popup_rect.h * ease_t;
 			const auto alpha_mult = ease_t;
 
-			auto& top_dl = zdraw::get_draw_list( zdraw::draw_layer::topmost );
+			auto& top_dl = zdraw::get_draw_list(zdraw::draw_layer::topmost);
 
 			auto bg_col = style.popup_bg;
-			bg_col.a = static_cast< std::uint8_t >( bg_col.a * alpha_mult );
+			bg_col.a = static_cast<std::uint8_t>(bg_col.a * alpha_mult);
 
-			auto border_col = lighten( style.popup_border, 1.1f );
-			border_col.a = static_cast< std::uint8_t >( border_col.a * alpha_mult );
+			auto border_popup_col = lighten(style.popup_border, 1.1f);
+			border_popup_col.a = static_cast<std::uint8_t>(border_popup_col.a * alpha_mult);
 
-			top_dl.add_rect_filled( popup_rect.x, popup_rect.y, popup_rect.w, animated_h, bg_col );
-			top_dl.add_rect( popup_rect.x, popup_rect.y, popup_rect.w, animated_h, border_col, 1.0f );
+			top_dl.add_rect_filled(popup_rect.x, popup_rect.y, popup_rect.w, animated_h, bg_col);
+			top_dl.add_rect(popup_rect.x, popup_rect.y, popup_rect.w, animated_h, border_popup_col, 1.0f);
 
-			ctx( ).m_active_popup_id = id;
-			ctx( ).m_draw_layer_override = zdraw::draw_layer::topmost;
-			ctx( ).m_inside_popup = !ov->is_closing( );
+			ctx().m_active_popup_id = id;
+			ctx().m_draw_layer_override = zdraw::draw_layer::topmost;
+			ctx().m_inside_popup = !ov->is_closing();
 
 			window_state state{};
-			state.title = std::string( label );
+			state.title = std::string(label);
 			state.bounds = popup_rect;
 			state.cursor_x = style.window_padding_x;
 			state.cursor_y = style.window_padding_y;
 			state.line_height = 0.0f;
 			state.is_child = true;
 
-			ctx( ).push_window( std::move( state ) );
-			ctx( ).push_id( id );
+			ctx().push_window(std::move(state));
+			ctx().push_id(id);
 
-			top_dl.push_clip_rect( popup_rect.x, popup_rect.y, popup_rect.right( ), popup_rect.y + animated_h );
+			top_dl.push_clip_rect(popup_rect.x, popup_rect.y, popup_rect.right(), popup_rect.y + animated_h);
 
 			return true;
 		}

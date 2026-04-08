@@ -16,7 +16,7 @@ namespace systems {
 			return 0;
 		}
 
-		for ( std::uint16_t current = 0; current != static_cast< std::uint16_t >( -1 ); )
+		for ( std::uint16_t current = 0, safety = 0; current != static_cast< std::uint16_t >( -1 ) && safety < 16384; ++safety )
 		{
 			const auto entry_addr = convars_ptr + ( static_cast< std::size_t >( current ) * 16 );
 			const auto convar = g::memory.read<std::uintptr_t>( entry_addr );

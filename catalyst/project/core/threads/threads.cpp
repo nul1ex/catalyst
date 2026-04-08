@@ -1,11 +1,15 @@
 #include <stdafx.hpp>
 
+#include <timeapi.h>
+#pragma comment( lib, "winmm.lib" )
+
 namespace threads {
 
 	void game( )
 	{
 		std::string last_map{};
 
+		timeBeginPeriod( 1 );
 		std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
 
 		while ( true )
@@ -16,6 +20,7 @@ namespace threads {
 			{
 				systems::g_entities.refresh( );
 				systems::g_collector.run( );
+				systems::g_voxels.update( );
 
 				const auto global_vars = g::memory.read<std::uintptr_t>( g::offsets.global_vars );
 				if ( global_vars )
@@ -49,16 +54,30 @@ namespace threads {
 
 	void combat( )
 	{
+		timeBeginPeriod( 1 );
+
 		constexpr auto target_tps{ 128 };
 		constexpr auto tick_interval = std::chrono::nanoseconds( 1'000'000'000 / target_tps );
 		auto next_tick = std::chrono::steady_clock::now( );
 
 		while ( true )
 		{
-			if ( systems::g_local.valid( ) && systems::g_bvh.valid( ) )
+			if ( systems::g_local.valid( ) )
 			{
 				features::combat::g_shared.tick( );
-				features::combat::g_legit.tick( );
+
+				if ( systems::g_bvh.valid( ) )
+				{
+					features::combat::g_legit.tick( );
+				}
+
+				features::movement::g_movement.tick( );
+
+				features::misc::g_misc.tick( );
+				features::esp::g_footsteps.tick( );
+				features::misc::g_impacts.tick( );
+
+				features::misc::g_nade_helper.tick( );
 			}
 
 			next_tick += tick_interval;
@@ -76,6 +95,33 @@ namespace threads {
 			{
 				_mm_pause( );
 			}
+		}
+	}
+	void write( )
+	{
+		while ( true )
+		{
+			if ( systems::g_local.valid( ) )
+			{
+				features::misc::g_misc.tick_write( );
+			}
+
+			std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+		}
+	}
+
+
+	void skinchanger( )
+	{
+		while ( true )
+		{
+
+			if ( systems::g_local.valid( ) )
+			{
+				features::skinchanger::g_skinchanger.tick( );
+			}
+
+			std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
 		}
 	}
 

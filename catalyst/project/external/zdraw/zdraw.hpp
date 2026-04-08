@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -290,5 +290,8 @@ namespace zdraw {
 	void pop_font( );
 
 	[[nodiscard]] std::pair<float, float> measure_text( std::string_view text, const font* fnt = nullptr );
+
+	inline float fps = 0;
+
 
 } // namespace zdraw

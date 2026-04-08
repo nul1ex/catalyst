@@ -19,7 +19,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -58,27 +58,28 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="project\core\config\config.cpp" />
     <ClCompile Include="project\core\features\impl\combat\legit.cpp" />
     <ClCompile Include="project\core\features\impl\combat\shared.cpp" />
+    <ClCompile Include="project\core\features\impl\esp\footsteps.cpp" />
     <ClCompile Include="project\core\features\impl\esp\item.cpp" />
     <ClCompile Include="project\core\features\impl\esp\player.cpp" />
     <ClCompile Include="project\core\features\impl\esp\projectile.cpp" />
     <ClCompile Include="project\core\features\impl\misc\grenades.cpp" />
     <ClCompile Include="project\core\features\impl\misc\impacts.cpp" />
+    <ClCompile Include="project\core\features\impl\misc\misc.cpp" />
+    <ClCompile Include="project\core\features\impl\misc\nade_helper.cpp" />
+    <ClCompile Include="project\core\features\impl\movement\movement.cpp" />
+    <ClCompile Include="project\core\features\impl\skinchanger\skinchanger.cpp" />
     <ClCompile Include="project\core\menu\menu.cpp" />
     <ClCompile Include="project\core\systems\impl\bones.cpp" />
     <ClCompile Include="project\core\systems\impl\bounds.cpp" />
     <ClCompile Include="project\core\systems\impl\bvh.cpp" />
     <ClCompile Include="project\core\systems\impl\hitboxes.cpp" />
     <ClCompile Include="project\entry.cpp" />
-    <ClCompile Include="project\external\zdraw\zdraw.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="project\external\zdraw\zui\zui.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="project\utilities\animation\animation.cpp" />
     <ClCompile Include="project\utilities\input\input.cpp" />
+    <ClCompile Include="project\utilities\input\csgoinput.cpp" />
     <ClCompile Include="project\utilities\pch\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
@@ -95,70 +96,40 @@
     <ClCompile Include="project\core\systems\impl\local.cpp" />
     <ClCompile Include="project\core\systems\impl\view.cpp" />
     <ClCompile Include="project\core\systems\impl\collector.cpp" />
-    <ClCompile Include="project\utilities\timing\timing.cpp" />
+    <ClCompile Include="project\core\systems\impl\voxels.cpp" />
+    <ClCompile Include="project\external\zdraw\zdraw.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="project\external\zdraw\zui\zui.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="project\core\config\config.hpp" />
     <ClInclude Include="project\core\features\features.hpp" />
+    <ClInclude Include="project\core\features\impl\misc\sounds.h" />
     <ClInclude Include="project\core\menu\menu.hpp" />
     <ClInclude Include="project\external\poly2d.hpp" />
-    <ClInclude Include="project\external\zdraw\external\external\fonts\inter.hpp" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftconfig.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftheader.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftmodule.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftoption.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\ftstdlib.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\integer-types.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\mac-support.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\config\public-macros.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\freetype.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftadvanc.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbbox.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbdf.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbitmap.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftbzip2.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftcache.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftchapters.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftcid.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftcolor.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftdriver.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fterrdef.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fterrors.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftfntfmt.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftgasp.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftglyph.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftgxval.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftgzip.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftimage.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftincrem.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlcdfil.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlist.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlogging.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftlzw.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmac.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmm.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmodapi.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftmoderr.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftotval.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftoutln.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftparams.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftpfr.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftrender.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsizes.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsnames.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftstroke.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsynth.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftsystem.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fttrigon.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\fttypes.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ftwinfnt.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\otsvg.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\t1tables.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\ttnameid.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\tttables.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\freetype\tttags.h" />
-    <ClInclude Include="project\external\zdraw\external\external\freetype\ft2build.h" />
-    <ClInclude Include="project\external\zdraw\external\external\shaders\shaders.hpp" />
-    <ClInclude Include="project\external\zdraw\external\external\unordered_dense.hpp" />
+    <ClInclude Include="project\resources\fonts\mochi.hpp" />
+    <ClInclude Include="project\resources\fonts\pixel7.hpp" />
+    <ClInclude Include="project\resources\fonts\pretzel.hpp" />
+    <ClInclude Include="project\resources\fonts\weapons.hpp" />
+    <ClInclude Include="project\stdafx.hpp" />
+    <ClInclude Include="project\utilities\animation\animation.hpp" />
+    <ClInclude Include="project\utilities\console\console.hpp" />
+    <ClInclude Include="project\utilities\cstypes.hpp" />
+    <ClInclude Include="project\utilities\input\input.hpp" />
+    <ClInclude Include="project\utilities\input\csgoinput.hpp" />
+    <ClInclude Include="project\utilities\memory\memory.hpp" />
+    <ClInclude Include="project\utilities\modules\modules.hpp" />
+    <ClInclude Include="project\utilities\offsets\offsets.hpp" />
+    <ClInclude Include="project\utilities\math\math.hpp" />
+    <ClInclude Include="project\utilities\fnv1a.hpp" />
+    <ClInclude Include="project\core\settings.hpp" />
+    <ClInclude Include="project\core\render\render.hpp" />
+    <ClInclude Include="project\core\threads\threads.hpp" />
+    <ClInclude Include="project\core\systems\systems.hpp" />
+    <ClInclude Include="project\external\xorstr.hpp" />
     <ClInclude Include="project\external\zdraw\external\fonts\inter.hpp" />
     <ClInclude Include="project\external\zdraw\external\freetype\freetype\config\ftconfig.h" />
     <ClInclude Include="project\external\zdraw\external\freetype\freetype\config\ftheader.h" />
@@ -219,27 +190,7 @@
     <ClInclude Include="project\external\zdraw\external\unordered_dense.hpp" />
     <ClInclude Include="project\external\zdraw\zdraw.hpp" />
     <ClInclude Include="project\external\zdraw\zui\zui.hpp" />
-    <ClInclude Include="project\resources\fonts\mochi.hpp" />
-    <ClInclude Include="project\resources\fonts\pixel7.hpp" />
-    <ClInclude Include="project\resources\fonts\pretzel.hpp" />
-    <ClInclude Include="project\resources\fonts\weapons.hpp" />
-    <ClInclude Include="project\stdafx.hpp" />
-    <ClInclude Include="project\utilities\animation\animation.hpp" />
-    <ClInclude Include="project\utilities\console\console.hpp" />
-    <ClInclude Include="project\utilities\cstypes.hpp" />
-    <ClInclude Include="project\utilities\input\input.hpp" />
-    <ClInclude Include="project\utilities\memory\memory.hpp" />
-    <ClInclude Include="project\utilities\modules\modules.hpp" />
-    <ClInclude Include="project\utilities\offsets\offsets.hpp" />
-    <ClInclude Include="project\utilities\math\math.hpp" />
-    <ClInclude Include="project\utilities\fnv1a.hpp" />
-    <ClInclude Include="project\core\settings.hpp" />
-    <ClInclude Include="project\core\render\render.hpp" />
-    <ClInclude Include="project\core\threads\threads.hpp" />
-    <ClInclude Include="project\core\systems\systems.hpp" />
-    <ClInclude Include="project\external\xorstr.hpp" />
     <ClInclude Include="project\utilities\random.hpp" />
-    <ClInclude Include="project\utilities\timing\timing.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="project\external\zdraw\external\freetype\freetype.lib" />
