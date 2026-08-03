@@ -10,7 +10,7 @@ namespace systems {
 			return 0;
 		}
 
-		const auto convars_ptr = g::memory.read<std::uintptr_t>( cvar + 0x48 );
+		const auto convars_ptr = g::memory.read<std::uintptr_t>( cvar + 0x50 );
 		if ( !convars_ptr )
 		{
 			return 0;

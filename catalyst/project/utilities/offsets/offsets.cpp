@@ -19,7 +19,7 @@ bool offsets::initialize( )
 
 	// entity_list
 	{
-		const auto initial = g::memory.find_pattern( g::modules.client, "48 89 35 ? ? ? ? 48 85 F6" );
+		const auto initial = g::memory.find_pattern( g::modules.client, "48 8B 0D ? ? ? ? 8B FD C1 EF 0E" );
 		if ( !initial )
 		{
 			return false;

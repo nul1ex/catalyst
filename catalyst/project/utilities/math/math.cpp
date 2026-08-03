@@ -2,9 +2,6 @@
 
 namespace math {
 
-	vector3::vector3( ) noexcept : x( 0.0f ), y( 0.0f ), z( 0.0f ) {}
-	constexpr vector3::vector3( float x, float y, float z ) noexcept : x( x ), y( y ), z( z ) {}
-
 	vector3 vector3::operator+( const vector3& v ) const noexcept { return { x + v.x, y + v.y, z + v.z }; }
 	vector3 vector3::operator-( const vector3& v ) const noexcept { return { x - v.x, y - v.y, z - v.z }; }
 	vector3 vector3::operator*( float scalar ) const noexcept { return { x * scalar, y * scalar, z * scalar }; }
@@ -113,9 +110,6 @@ namespace math {
 		}
 	}
 
-	vector2::vector2( ) noexcept : x( 0.0f ), y( 0.0f ) {}
-	constexpr vector2::vector2( float x, float y ) noexcept : x( x ), y( y ) {}
-
 	vector2 vector2::operator+( const vector2& v ) const noexcept { return { x + v.x, y + v.y }; }
 	vector2 vector2::operator-( const vector2& v ) const noexcept { return { x - v.x, y - v.y }; }
 	vector2 vector2::operator*( float scalar ) const noexcept { return { x * scalar, y * scalar }; }
@@ -165,9 +159,6 @@ namespace math {
 
 	// -------------------------------- //
 
-	quaternion::quaternion( ) noexcept : x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 1.0f ) {}
-	constexpr quaternion::quaternion( float x, float y, float z, float w ) noexcept : x( x ), y( y ), z( z ), w( w ) {}
-
 	quaternion quaternion::from_euler( const vector3& euler ) noexcept
 	{
 		const auto pitch = euler.x * ( std::numbers::pi_v<float> / 180.0f );
@@ -203,6 +194,38 @@ namespace math {
 	}
 
 	// -------------------------------- //
+
+	const float* matrix3x3::operator[]( int i ) const noexcept { return mat[ i ]; }
+	float* matrix3x3::operator[]( int i ) noexcept { return mat[ i ]; }
+
+	matrix3x3 matrix3x3::from_quaternion( const quaternion& q ) noexcept
+	{
+		const auto xx = q.x * q.x, yy = q.y * q.y, zz = q.z * q.z;
+		const auto xy = q.x * q.y, xz = q.x * q.z, yz = q.y * q.z;
+		const auto wx = q.w * q.x, wy = q.w * q.y, wz = q.w * q.z;
+
+		matrix3x3 m{};
+		m.mat[ 0 ][ 0 ] = 1 - 2 * ( yy + zz );
+		m.mat[ 0 ][ 1 ] = 2 * ( xy + wz );
+		m.mat[ 0 ][ 2 ] = 2 * ( xz - wy );
+		m.mat[ 1 ][ 0 ] = 2 * ( xy - wz );
+		m.mat[ 1 ][ 1 ] = 1 - 2 * ( xx + zz );
+		m.mat[ 1 ][ 2 ] = 2 * ( yz + wx );
+		m.mat[ 2 ][ 0 ] = 2 * ( xz + wy );
+		m.mat[ 2 ][ 1 ] = 2 * ( yz - wx );
+		m.mat[ 2 ][ 2 ] = 1 - 2 * ( xx + yy );
+		return m;
+	}
+
+	vector3 matrix3x3::rotate( const vector3& v ) const noexcept
+	{
+		return
+		{
+			mat[ 0 ][ 0 ] * v.x + mat[ 1 ][ 0 ] * v.y + mat[ 2 ][ 0 ] * v.z,
+			mat[ 0 ][ 1 ] * v.x + mat[ 1 ][ 1 ] * v.y + mat[ 2 ][ 1 ] * v.z,
+			mat[ 0 ][ 2 ] * v.x + mat[ 1 ][ 2 ] * v.y + mat[ 2 ][ 2 ] * v.z
+		};
+	}
 
 	const float* matrix3x4::operator[]( int i ) const noexcept
 	{
